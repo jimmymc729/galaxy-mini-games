@@ -22,7 +22,8 @@
     "status": "Playable",
     "releaseWindow": "Live Now",
     "playUrl": "play.html?slug=microcosm",
-    "gameFile": "microcosm/index.html"
+    "gameFile": "microcosm/index.html",
+    "previewImage": "assets/previews/microcosm-preview.png"
   },
   {
     "slug": "asteroid-drifter",
