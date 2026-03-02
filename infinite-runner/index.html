@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Space Runner</title>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Rajdhani:wght@500;600;700&display=swap"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <header class="titlebar">
+        <div class="titlebar-top">
+          <h1>Space Runner</h1>
+          <button id="musicToggle" type="button" class="music-toggle" aria-pressed="true">Music: On</button>
+        </div>
+        <p>Run into the ring-depth. Use <kbd>←</kbd>/<kbd>→</kbd> to lane-shift, <kbd>Space</kbd> to fire, <kbd>↑</kbd> to jump, and <kbd>M</kbd> to toggle music.</p>
+      </header>
+
+      <section class="game-shell" aria-label="Space Runner game board">
+        <canvas id="gameCanvas" width="960" height="480"></canvas>
+        <div class="hud" aria-live="polite">
+          <span>Aliens Destroyed: <strong id="killsValue">0</strong></span>
+          <span class="health-meter">
+            Ship Health: <strong id="healthValue">100%</strong>
+            <em class="health-track" aria-hidden="true"><i id="healthFill"></i></em>
+          </span>
+          <span>Velocity: <strong id="speedValue">1.0x</strong></span>
+        </div>
+      </section>
+    </main>
+
+    <script src="./game.js"></script>
+  </body>
+</html>
