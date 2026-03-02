@@ -29,6 +29,20 @@
       previewImage: 'assets/previews/microcosm-preview.png'
     },
     {
+      slug: 'infinite-runner',
+      title: 'Space Runner',
+      tagline: 'Dash the ring-depth and blast through alien swarms.',
+      description:
+        'Lane-shift, jump, and fire your way through a fast arcade run while your ship health and speed pressure climb.',
+      genre: 'Arcade Runner',
+      players: 'Single Player',
+      status: 'Playable',
+      releaseWindow: 'Live Now',
+      playUrl: 'play.html?slug=infinite-runner',
+      gameFile: 'infinite-runner/index.html',
+      previewImage: 'assets/previews/space-runner-preview.png'
+    },
+    {
       slug: 'asteroid-drifter',
       title: 'Asteroid Drifter',
       tagline: 'Thread your ship through shifting asteroid belts.',
