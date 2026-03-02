@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Read the Galaxy Mini Games devlog for release notes, feature progress, and upcoming arcade drops."
+    />
+    <title>Galaxy Mini Games | Updates</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Orbitron:wght@500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body data-page="updates">
+    <div class="page-glow" aria-hidden="true"></div>
+    <header class="site-header" data-site-header></header>
+
+    <main class="page-main">
+      <section class="page-intro" aria-labelledby="updates-title">
+        <div class="container">
+          <h1 id="updates-title">Devlog Updates</h1>
+          <p>
+            Track progress, feature work, and release notes as the portal grows.
+          </p>
+        </div>
+      </section>
+
+      <section class="updates" aria-labelledby="updates-list-title">
+        <div class="container">
+          <div class="section-head">
+            <h2 id="updates-list-title">Latest Posts</h2>
+            <p>Data source: `data/updates.json`</p>
+          </div>
+          <p class="status-message" data-updates-status>Loading updates...</p>
+          <div class="updates-list" data-updates-list></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer" data-site-footer></footer>
+
+    <script src="js/site-shell.js" defer></script>
+    <script src="js/data-loader.js" defer></script>
+    <script src="js/updates.js" defer></script>
+  </body>
+</html>

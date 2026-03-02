@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="View a Galaxy Mini Games profile page with status, genre, and launch details for each mini game."
+    />
+    <title>Galaxy Mini Games | Game Profile</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Orbitron:wght@500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body data-page="games">
+    <div class="page-glow" aria-hidden="true"></div>
+    <header class="site-header" data-site-header></header>
+
+    <main class="page-main">
+      <section class="page-intro" aria-labelledby="game-template-title">
+        <div class="container">
+          <h1 id="game-template-title">Game Profile</h1>
+          <p>
+            Single-game template page. Use `?slug=your-game-slug` in the URL to
+            render a specific title.
+          </p>
+        </div>
+      </section>
+
+      <section class="featured" aria-labelledby="game-profile-title">
+        <div class="container">
+          <h2 id="game-profile-title">Selected Game</h2>
+          <p class="status-message" data-game-status>Loading game profile...</p>
+          <article class="game-card game-profile" data-game-profile></article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer" data-site-footer></footer>
+
+    <script src="js/site-shell.js" defer></script>
+    <script src="js/data-loader.js" defer></script>
+    <script src="js/game.js" defer></script>
+  </body>
+</html>

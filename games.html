@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Browse the full Galaxy Mini Games roster with retro browser games built for quick play sessions."
+    />
+    <title>Galaxy Mini Games | Games</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Orbitron:wght@500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body data-page="games">
+    <div class="page-glow" aria-hidden="true"></div>
+    <header class="site-header" data-site-header></header>
+
+    <main class="page-main">
+      <section class="page-intro" aria-labelledby="games-page-title">
+        <div class="container">
+          <h1 id="games-page-title">Game Roster</h1>
+          <p>
+            Every title in the current portal build. Each game has a profile page
+            for status, genre, and launch readiness.
+          </p>
+        </div>
+      </section>
+
+      <section class="games" aria-labelledby="all-games-title">
+        <div class="container">
+          <div class="section-head">
+            <h2 id="all-games-title">All Games</h2>
+            <p>Data source: `data/games.json`</p>
+          </div>
+          <p class="status-message" data-games-status>Loading game roster...</p>
+          <div class="games-grid games-grid--wide" data-games-list></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer" data-site-footer></footer>
+
+    <script src="js/site-shell.js" defer></script>
+    <script src="js/data-loader.js" defer></script>
+    <script src="js/games.js" defer></script>
+  </body>
+</html>

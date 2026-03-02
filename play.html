@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Play Galaxy Mini Games titles in an embedded player with optional fullscreen mode."
+    />
+    <title>Galaxy Mini Games | Play</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Orbitron:wght@500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body data-page="games">
+    <div class="page-glow" aria-hidden="true"></div>
+    <header class="site-header" data-site-header></header>
+
+    <main class="page-main">
+      <section class="page-intro" aria-labelledby="play-page-title">
+        <div class="container">
+          <h1 id="play-page-title">Play Game</h1>
+          <p data-play-subtitle>
+            Games open in this in-page player by default. Use fullscreen when you
+            want an immersive view.
+          </p>
+        </div>
+      </section>
+
+      <section class="featured" aria-labelledby="player-title">
+        <div class="container">
+          <h2 id="player-title">Player</h2>
+          <p class="status-message" data-play-status>Loading game player...</p>
+
+          <div class="player-shell" data-play-shell>
+            <div class="player-controls">
+              <button class="play-button" type="button" data-fullscreen-btn>
+                Fullscreen
+              </button>
+              <a class="text-link" href="#" data-open-direct target="_blank" rel="noopener">
+                Open Raw Game
+              </a>
+              <a class="text-link" href="games.html">Back to Games</a>
+            </div>
+            <div class="player-frame-wrap">
+              <iframe
+                class="player-frame"
+                data-game-frame
+                title="Game player"
+                allowfullscreen
+                loading="lazy"
+              ></iframe>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer" data-site-footer></footer>
+
+    <script src="js/site-shell.js" defer></script>
+    <script src="js/data-loader.js" defer></script>
+    <script src="js/play.js" defer></script>
+  </body>
+</html>
