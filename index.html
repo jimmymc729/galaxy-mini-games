@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Galaxy Mini Games is a retro-futuristic browser arcade with instant-play mini games and no downloads."
+    />
+    <title>Galaxy Mini Games | Games</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Orbitron:wght@500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body data-page="games">
+    <div class="page-glow" aria-hidden="true"></div>
+    <header class="site-header" data-site-header></header>
+
+    <main class="page-main">
+      <section class="games" aria-labelledby="games-title">
+        <div class="container">
+          <div class="section-head">
+            <h2 id="games-title">All Games</h2>
+          </div>
+          <p class="status-message" data-games-status>Loading game roster...</p>
+          <div class="games-grid games-grid--wide" data-games-list></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer" data-site-footer></footer>
+
+    <script src="js/site-shell.js" defer></script>
+    <script src="js/data-loader.js" defer></script>
+    <script src="js/games.js" defer></script>
+  </body>
+</html>
