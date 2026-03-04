@@ -1,0 +1,67 @@
+[
+  {
+    "slug": "sea-monkey-simulator",
+    "title": "Sea Monkey Simulator",
+    "tagline": "Grow a tiny colony into a thriving neon ecosystem.",
+    "description": "Balance food, oxygen, and tank upgrades while your sea monkey colony expands through calm management loops.",
+    "genre": "Simulation",
+    "players": "Single Player",
+    "status": "Playable",
+    "releaseWindow": "Live Now",
+    "playUrl": "play.html?slug=sea-monkey-simulator",
+    "gameFile": "sea-monkey-simulator.html",
+    "previewImage": "assets/previews/sea-monkey-simulator-preview.png"
+  },
+  {
+    "slug": "microcosm",
+    "title": "Microcosm",
+    "tagline": "Guide a single-celled organism through a luminous microscopic arena.",
+    "description": "Absorb glucose, amino acids, and ATP while dodging predatory protozoa and viscous gel zones in a stylized microscope world.",
+    "genre": "Arcade",
+    "players": "Single Player + AI Bots",
+    "status": "Playable",
+    "releaseWindow": "Live Now",
+    "playUrl": "play.html?slug=microcosm",
+    "gameFile": "microcosm/index.html",
+    "previewImage": "assets/previews/microcosm-preview.png"
+  },
+  {
+    "slug": "infinite-runner",
+    "title": "Space Runner",
+    "tagline": "Dash the ring-depth and blast through alien swarms.",
+    "description": "Lane-shift, jump, and fire your way through a fast arcade run while your ship health and speed pressure climb.",
+    "genre": "Arcade Runner",
+    "players": "Single Player",
+    "status": "Playable",
+    "releaseWindow": "Live Now",
+    "playUrl": "play.html?slug=infinite-runner",
+    "gameFile": "infinite-runner/index.html",
+    "previewImage": "assets/previews/space-runner-preview.png"
+  },
+  {
+    "slug": "moonjet-cavern",
+    "title": "Moonjet Cavern",
+    "tagline": "Thread a jetpack astronaut through narrow lunar caverns.",
+    "description": "Tap to thrust, avoid stone pillars, and chase high scores in this tight one-button arcade challenge.",
+    "genre": "Arcade",
+    "players": "Single Player",
+    "status": "Playable",
+    "releaseWindow": "Live Now",
+    "playUrl": "play.html?slug=moonjet-cavern",
+    "gameFile": "moonjet-cavern/index.html",
+    "previewImage": "assets/previews/moonjet-cavern-preview.png"
+  },
+  {
+    "slug": "alien-invasion",
+    "title": "Alien Invasion",
+    "tagline": "Pilot your UFO and demolish the city skyline.",
+    "description": "Bomb buildings, dodge tank fire, and survive wave after wave in this arcade destruction run.",
+    "genre": "Arcade",
+    "players": "Single Player",
+    "status": "Playable",
+    "releaseWindow": "Live Now",
+    "playUrl": "play.html?slug=alien-invasion",
+    "gameFile": "alien-invasion/index.html",
+    "previewImage": "assets/previews/alien-invasion-preview.png"
+  }
+]
