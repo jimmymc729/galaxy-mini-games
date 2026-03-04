@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alien Invasion</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="game-shell">
+    <header class="hud-bar">
+      <div class="hud-item">Health: <span id="healthValue">100</span></div>
+      <div class="hud-item">Score: <span id="scoreValue">0</span></div>
+      <div class="hud-item">High Score: <span id="highScoreValue">0</span></div>
+      <div class="hud-item">Mode: <span id="statusValue">PLAY</span></div>
+      <button id="pauseButton" class="hud-btn" type="button" aria-label="Pause game">Pause (P)</button>
+    </header>
+
+    <div class="canvas-wrap">
+      <button id="nextCityButton" class="next-city-btn" type="button" aria-label="Start next city">Next City (N)</button>
+      <canvas id="gameCanvas" width="1280" height="720" aria-label="Alien Invasion game"></canvas>
+    </div>
+
+    <footer class="help-bar">
+      <span>Move UFO: W/A/S/D or Arrows</span>
+      <span>Drop Bombs: Space (hold)</span>
+      <span>Pause: P or Esc</span>
+      <span>Next City: N</span>
+      <span>Mute: M</span>
+      <span>Debug Atlas: G</span>
+      <span>Restart: R</span>
+    </footer>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>
