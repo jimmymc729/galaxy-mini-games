@@ -2287,8 +2287,15 @@
       this.updateTouchBoostVisibility();
     }
 
+    bindIf(el, eventName, handler, options) {
+      if (!el) {
+        return;
+      }
+      el.addEventListener(eventName, handler, options);
+    }
+
     bindEvents() {
-      this.el.playButton.addEventListener('click', () => {
+      this.bindIf(this.el.playButton, 'click', () => {
         this.game.audio.unlock();
         this.game.audio.playUi('start');
         this.showStart(false);
@@ -2299,24 +2306,24 @@
         this.updateTouchBoostVisibility();
       });
 
-      this.el.playAgain.addEventListener('click', () => {
+      this.bindIf(this.el.playAgain, 'click', () => {
         this.game.audio.unlock();
         this.game.audio.playUi('start');
         this.game.forcePlayerRespawn();
         this.updateTouchBoostVisibility();
       });
 
-      this.el.controlsButton.addEventListener('click', () => {
+      this.bindIf(this.el.controlsButton, 'click', () => {
         this.game.audio.playUi('tap');
         this.setPanelVisibility('controls', true);
       });
 
-      this.el.settingsButton.addEventListener('click', () => {
+      this.bindIf(this.el.settingsButton, 'click', () => {
         this.game.audio.playUi('tap');
         this.setPanelVisibility('settings', true);
       });
 
-      this.el.settingsToggle.addEventListener('click', () => {
+      this.bindIf(this.el.settingsToggle, 'click', () => {
         this.game.audio.playUi(this.isPanelVisible('settings') ? 'close' : 'tap');
         this.setPanelVisibility('settings', !this.isPanelVisible('settings'));
       });
@@ -2335,20 +2342,20 @@
         });
       });
 
-      this.el.controlSelect.addEventListener('change', () => {
+      this.bindIf(this.el.controlSelect, 'change', () => {
         this.game.audio.playUi('tap');
         this.game.settings.controlScheme = this.el.controlSelect.value;
         this.game.input.setControlScheme(this.game.settings.controlScheme);
         this.persistSettings();
       });
 
-      this.el.qualitySelect.addEventListener('change', () => {
+      this.bindIf(this.el.qualitySelect, 'change', () => {
         this.game.audio.playUi('tap');
         this.game.settings.quality = this.el.qualitySelect.value;
         this.persistSettings();
       });
 
-      this.el.muteInput.addEventListener('change', () => {
+      this.bindIf(this.el.muteInput, 'change', () => {
         this.game.settings.muted = this.el.muteInput.checked;
         this.game.audio.setMuted(this.game.settings.muted);
         if (!this.game.settings.muted) {
@@ -2358,7 +2365,7 @@
         this.persistSettings();
       });
 
-      this.el.muteButton.addEventListener('click', () => {
+      this.bindIf(this.el.muteButton, 'click', () => {
         this.game.settings.muted = !this.game.settings.muted;
         this.game.audio.setMuted(this.game.settings.muted);
         if (!this.game.settings.muted) {
@@ -2370,23 +2377,24 @@
 
       const setTouchBoostState = (active) => {
         this.game.input.setTouchBoost(active);
-        this.el.touchBoost.classList.toggle('touch-boost--active', active);
+        if (this.el.touchBoost) {
+          this.el.touchBoost.classList.toggle('touch-boost--active', active);
+        }
       };
-
-      this.el.touchBoost.addEventListener('pointerdown', (event) => {
+      this.bindIf(this.el.touchBoost, 'pointerdown', (event) => {
         event.preventDefault();
         setTouchBoostState(true);
       });
-      this.el.touchBoost.addEventListener('pointerup', () => setTouchBoostState(false));
-      this.el.touchBoost.addEventListener('pointercancel', () => setTouchBoostState(false));
-      this.el.touchBoost.addEventListener('pointerleave', () => setTouchBoostState(false));
-      this.el.touchBoost.addEventListener('touchstart', (event) => {
+      this.bindIf(this.el.touchBoost, 'pointerup', () => setTouchBoostState(false));
+      this.bindIf(this.el.touchBoost, 'pointercancel', () => setTouchBoostState(false));
+      this.bindIf(this.el.touchBoost, 'pointerleave', () => setTouchBoostState(false));
+      this.bindIf(this.el.touchBoost, 'touchstart', (event) => {
         event.preventDefault();
         setTouchBoostState(true);
       }, { passive: false });
-      this.el.touchBoost.addEventListener('touchend', () => setTouchBoostState(false), { passive: true });
-      this.el.touchBoost.addEventListener('touchcancel', () => setTouchBoostState(false), { passive: true });
-      this.el.touchBoost.addEventListener('mousedown', (event) => {
+      this.bindIf(this.el.touchBoost, 'touchend', () => setTouchBoostState(false), { passive: true });
+      this.bindIf(this.el.touchBoost, 'touchcancel', () => setTouchBoostState(false), { passive: true });
+      this.bindIf(this.el.touchBoost, 'mousedown', (event) => {
         event.preventDefault();
         setTouchBoostState(true);
       });
@@ -2403,21 +2411,34 @@
     }
 
     syncSettingsUI() {
-      this.el.controlSelect.value = this.game.settings.controlScheme;
-      this.el.qualitySelect.value = this.game.settings.quality;
-      this.el.muteInput.checked = this.game.settings.muted;
+      if (this.el.controlSelect) {
+        this.el.controlSelect.value = this.game.settings.controlScheme;
+      }
+      if (this.el.qualitySelect) {
+        this.el.qualitySelect.value = this.game.settings.quality;
+      }
+      if (this.el.muteInput) {
+        this.el.muteInput.checked = this.game.settings.muted;
+      }
       this.syncMuteButtons();
     }
 
     syncMuteButtons() {
       const muted = this.game.settings.muted;
-      this.el.muteButton.textContent = muted ? 'Mute: On' : 'Mute: Off';
-      this.el.muteButton.setAttribute('aria-pressed', muted ? 'true' : 'false');
-      this.el.muteInput.checked = muted;
+      if (this.el.muteButton) {
+        this.el.muteButton.textContent = muted ? 'Mute: On' : 'Mute: Off';
+        this.el.muteButton.setAttribute('aria-pressed', muted ? 'true' : 'false');
+      }
+      if (this.el.muteInput) {
+        this.el.muteInput.checked = muted;
+      }
     }
 
     isPanelVisible(panelName) {
       const panel = panelName === 'controls' ? this.el.controlsPanel : this.el.settingsPanel;
+      if (!panel) {
+        return false;
+      }
       return !panel.hidden;
     }
 
@@ -2430,9 +2451,12 @@
     }
 
     updateTouchBoostVisibility() {
+      if (!this.el.touchBoost) {
+        return;
+      }
       const overlaysOpen =
-        !this.el.startScreen.hidden ||
-        !this.el.gameOver.hidden ||
+        (this.el.startScreen && !this.el.startScreen.hidden) ||
+        (this.el.gameOver && !this.el.gameOver.hidden) ||
         this.isPanelVisible('controls') ||
         this.isPanelVisible('settings');
       const show = this.game.running && !overlaysOpen && this.isTouchDevice();
@@ -2446,21 +2470,30 @@
 
     setPanelVisibility(panelName, visible) {
       const panel = panelName === 'controls' ? this.el.controlsPanel : this.el.settingsPanel;
+      if (!panel) {
+        return;
+      }
       panel.hidden = !visible;
       panel.classList.toggle('overlay--visible', visible);
       this.updateTouchBoostVisibility();
     }
 
     showStart(show) {
+      if (!this.el.startScreen) {
+        return;
+      }
       this.el.startScreen.hidden = !show;
       this.el.startScreen.classList.toggle('overlay--visible', show);
       this.updateTouchBoostVisibility();
     }
 
     setGameOver(show, stats) {
+      if (!this.el.gameOver) {
+        return;
+      }
       this.el.gameOver.hidden = !show;
       this.el.gameOver.classList.toggle('overlay--visible', show);
-      if (show && stats) {
+      if (show && stats && this.el.finalSize && this.el.finalScore) {
         this.el.finalSize.textContent = String(stats.size);
         this.el.finalScore.textContent = String(stats.score);
       }
@@ -2470,8 +2503,12 @@
     updateHUD() {
       const player = this.game.player;
 
-      this.el.hudSize.textContent = String(Math.round(player.mass));
-      this.el.hudScore.textContent = String(player.score);
+      if (this.el.hudSize) {
+        this.el.hudSize.textContent = String(Math.round(player.mass));
+      }
+      if (this.el.hudScore) {
+        this.el.hudScore.textContent = String(player.score);
+      }
     }
 
   }
@@ -4077,6 +4114,28 @@
   }
 
   window.addEventListener('DOMContentLoaded', function () {
-    new Game();
+    try {
+      new Game();
+    } catch (error) {
+      console.error('Microcosm failed to start:', error);
+      const fallback = document.createElement('div');
+      fallback.style.position = 'fixed';
+      fallback.style.inset = '0';
+      fallback.style.display = 'grid';
+      fallback.style.placeItems = 'center';
+      fallback.style.background = 'radial-gradient(circle at 50% 40%, #082130, #020910)';
+      fallback.style.color = '#d7f9ff';
+      fallback.style.font = '600 16px Chivo, sans-serif';
+      fallback.style.textAlign = 'center';
+      fallback.style.padding = '24px';
+      fallback.style.zIndex = '9999';
+      const message = document.createElement('div');
+      message.innerHTML =
+        '<h2 style="margin:0 0 10px;font:700 26px Syne,sans-serif;">Microcosm Error</h2>' +
+        '<p style="margin:0 0 10px;opacity:.9;">The game failed to initialize.</p>' +
+        '<p style="margin:0;opacity:.72;font-size:13px;">Try a hard refresh or update to the latest game.js.</p>';
+      fallback.appendChild(message);
+      document.body.appendChild(fallback);
+    }
   });
 })();
