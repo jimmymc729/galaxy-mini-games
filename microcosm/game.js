@@ -788,6 +788,9 @@
             if (event.pointerType !== 'touch' && event.pointerType !== 'pen') {
               return;
             }
+            if (this.primaryTouchId !== null && event.pointerId !== this.primaryTouchId) {
+              return;
+            }
             event.preventDefault();
             this.activeControl = 'touch';
             this.primaryTouchId = event.pointerId;
@@ -805,22 +808,21 @@
           { passive: false }
         );
 
-        this.canvas.addEventListener(
-          'pointermove',
-          (event) => {
-            if (event.pointerType !== 'touch' && event.pointerType !== 'pen') {
-              return;
-            }
-            if (this.primaryTouchId !== null && event.pointerId !== this.primaryTouchId) {
-              return;
-            }
-            event.preventDefault();
-            this.activeControl = 'touch';
-            this.touchActive = true;
-            this.updateTouchPositionFromClient(event.clientX, event.clientY);
-          },
-          { passive: false }
-        );
+        const movePointerTouch = (event) => {
+          if (event.pointerType !== 'touch' && event.pointerType !== 'pen') {
+            return;
+          }
+          if (this.primaryTouchId === null || event.pointerId !== this.primaryTouchId) {
+            return;
+          }
+          event.preventDefault();
+          this.activeControl = 'touch';
+          this.touchActive = true;
+          this.updateTouchPositionFromClient(event.clientX, event.clientY);
+        };
+
+        this.canvas.addEventListener('pointermove', movePointerTouch, { passive: false });
+        window.addEventListener('pointermove', movePointerTouch, { passive: false });
 
         const endPointerTouch = (event) => {
           if (event.pointerType !== 'touch' && event.pointerType !== 'pen') {
@@ -836,6 +838,8 @@
 
         this.canvas.addEventListener('pointerup', endPointerTouch, { passive: true });
         this.canvas.addEventListener('pointercancel', endPointerTouch, { passive: true });
+        window.addEventListener('pointerup', endPointerTouch, { passive: true });
+        window.addEventListener('pointercancel', endPointerTouch, { passive: true });
       }
 
       window.addEventListener('keydown', (event) => {
@@ -913,62 +917,37 @@
         }
       });
 
-      this.canvas.addEventListener(
-        'touchstart',
-        (event) => {
-          if (!event.touches.length) {
-            return;
-          }
-          if (this.primaryTouchSource === 'pointer' && this.primaryTouchId !== null) {
-            return;
-          }
-          event.preventDefault();
-          this.activeControl = 'touch';
-          if (this.primaryTouchId === null) {
-            const touch = event.changedTouches[0] || event.touches[0];
-            if (!touch) {
+      if (!window.PointerEvent) {
+        this.canvas.addEventListener(
+          'touchstart',
+          (event) => {
+            if (!event.touches.length) {
               return;
             }
-            this.primaryTouchId = touch.identifier;
-            this.primaryTouchSource = 'touch';
-            this.touchActive = true;
-            this.updateTouchPosition(touch);
-          } else {
-            if (this.primaryTouchSource !== 'touch') {
-              return;
+            event.preventDefault();
+            this.activeControl = 'touch';
+            if (this.primaryTouchId === null) {
+              const touch = event.changedTouches[0] || event.touches[0];
+              if (!touch) {
+                return;
+              }
+              this.primaryTouchId = touch.identifier;
+              this.primaryTouchSource = 'touch';
+              this.touchActive = true;
+              this.updateTouchPosition(touch);
+            } else {
+              const touch = this.findTouchById(event.touches, this.primaryTouchId);
+              if (!touch) {
+                return;
+              }
+              this.touchActive = true;
+              this.updateTouchPosition(touch);
             }
-            const touch = this.findTouchById(event.touches, this.primaryTouchId);
-            if (!touch) {
-              return;
-            }
-            this.touchActive = true;
-            this.updateTouchPosition(touch);
-          }
-        },
-        { passive: false }
-      );
+          },
+          { passive: false }
+        );
 
-      this.canvas.addEventListener(
-        'touchmove',
-        (event) => {
-          if (this.primaryTouchId === null || this.primaryTouchSource !== 'touch') {
-            return;
-          }
-          event.preventDefault();
-          const touch = this.findTouchById(event.touches, this.primaryTouchId);
-          if (!touch) {
-            return;
-          }
-          this.activeControl = 'touch';
-          this.touchActive = true;
-          this.updateTouchPosition(touch);
-        },
-        { passive: false }
-      );
-
-      window.addEventListener(
-        'touchmove',
-        (event) => {
+        const moveTouch = (event) => {
           if (this.primaryTouchId === null || this.primaryTouchSource !== 'touch') {
             return;
           }
@@ -980,27 +959,29 @@
           this.activeControl = 'touch';
           this.touchActive = true;
           this.updateTouchPosition(touch);
-        },
-        { passive: false }
-      );
+        };
 
-      const clearTouch = (event) => {
-        if (this.primaryTouchId === null || this.primaryTouchSource !== 'touch') {
-          return;
-        }
-        const stillActiveTouch = this.findTouchById(event.touches, this.primaryTouchId);
-        if (stillActiveTouch) {
-          this.touchActive = true;
-          this.updateTouchPosition(stillActiveTouch);
-          return;
-        }
-        this.primaryTouchId = null;
-        this.primaryTouchSource = null;
-        this.touchActive = false;
-      };
+        this.canvas.addEventListener('touchmove', moveTouch, { passive: false });
+        window.addEventListener('touchmove', moveTouch, { passive: false });
 
-      window.addEventListener('touchend', clearTouch, { passive: true });
-      window.addEventListener('touchcancel', clearTouch, { passive: true });
+        const clearTouch = (event) => {
+          if (this.primaryTouchId === null || this.primaryTouchSource !== 'touch') {
+            return;
+          }
+          const stillActiveTouch = this.findTouchById(event.touches, this.primaryTouchId);
+          if (stillActiveTouch) {
+            this.touchActive = true;
+            this.updateTouchPosition(stillActiveTouch);
+            return;
+          }
+          this.primaryTouchId = null;
+          this.primaryTouchSource = null;
+          this.touchActive = false;
+        };
+
+        window.addEventListener('touchend', clearTouch, { passive: true });
+        window.addEventListener('touchcancel', clearTouch, { passive: true });
+      }
     }
 
     consumePausePressed() {
