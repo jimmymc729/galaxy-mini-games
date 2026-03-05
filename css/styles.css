@@ -416,6 +416,21 @@ h3 {
   text-decoration: none;
 }
 
+.game-mobile-feed-link {
+  display: none;
+  text-decoration: none;
+}
+
+.game-mobile-feed-title {
+  display: block;
+  margin-top: 0.55rem;
+  font-family: var(--font-body);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-main);
+}
+
 .game-thumb--placeholder {
   background:
     radial-gradient(circle at 22% 25%, rgba(77, 247, 255, 0.22), transparent 45%),
@@ -807,6 +822,32 @@ button.text-link {
 
   .game-card-featured .game-card__content {
     padding-top: 2.1rem;
+  }
+
+  .game-card-listing {
+    padding: 0.8rem;
+  }
+
+  .game-card-listing .game-thumb-link,
+  .game-card-listing > h3,
+  .game-card-listing > p,
+  .game-card-listing .game-card__meta,
+  .game-card-listing .game-card__actions {
+    display: none;
+  }
+
+  .game-card-listing .game-mobile-feed-link {
+    display: block;
+  }
+
+  .game-card-listing .game-thumb--mobile-feed {
+    margin-bottom: 0;
+  }
+
+  .game-card-listing .game-mobile-feed-title {
+    margin-top: 0.5rem;
+    font-size: 1.1rem;
+    line-height: 1.25;
   }
 
   .footer-copy {
