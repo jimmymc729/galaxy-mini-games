@@ -7,6 +7,11 @@ const uiHighScore = document.getElementById("highScoreValue");
 const uiStatus = document.getElementById("statusValue");
 const nextCityButton = document.getElementById("nextCityButton");
 const pauseButton = document.getElementById("pauseButton");
+const mbUp = document.getElementById("mbUp");
+const mbDown = document.getElementById("mbDown");
+const mbLeft = document.getElementById("mbLeft");
+const mbRight = document.getElementById("mbRight");
+const mbFire = document.getElementById("mbFire");
 
 const HIGH_SCORE_KEY = "ufo_city_rampage_high_score_v1";
 
@@ -2894,6 +2899,64 @@ function randInt(min, max) {
   return Math.floor(randomRange(min, max + 1));
 }
 
+function setVirtualKey(code, down) {
+  input.down[code] = !!down;
+  if (down) input.pressed[code] = true;
+}
+
+function bindVirtualHold(button, code) {
+  if (!button) return;
+  let activePointerId = null;
+
+  const onStart = (ev) => {
+    if (activePointerId != null) return;
+    activePointerId = ev.pointerId;
+    if (typeof button.setPointerCapture === "function") {
+      try {
+        button.setPointerCapture(ev.pointerId);
+      } catch {
+        // ignore capture failures
+      }
+    }
+    ev.preventDefault();
+    unlockAudio();
+    setVirtualKey(code, true);
+    button.classList.add("is-active");
+  };
+
+  const onEnd = (ev) => {
+    if (activePointerId != null && ev.pointerId !== activePointerId) return;
+    activePointerId = null;
+    ev.preventDefault();
+    setVirtualKey(code, false);
+    button.classList.remove("is-active");
+  };
+
+  button.addEventListener("pointerdown", onStart);
+  button.addEventListener("pointerup", onEnd);
+  button.addEventListener("pointercancel", onEnd);
+  button.addEventListener("pointerleave", onEnd);
+  button.addEventListener("lostpointercapture", onEnd);
+}
+
+function resetVirtualInputs() {
+  setVirtualKey("ArrowUp", false);
+  setVirtualKey("ArrowDown", false);
+  setVirtualKey("ArrowLeft", false);
+  setVirtualKey("ArrowRight", false);
+  setVirtualKey("Space", false);
+}
+
+function bindMobileControls() {
+  bindVirtualHold(mbUp, "ArrowUp");
+  bindVirtualHold(mbDown, "ArrowDown");
+  bindVirtualHold(mbLeft, "ArrowLeft");
+  bindVirtualHold(mbRight, "ArrowRight");
+  bindVirtualHold(mbFire, "Space");
+
+  window.addEventListener("blur", resetVirtualInputs);
+}
+
 const preventDefaultKeys = new Set([
   "ArrowLeft",
   "ArrowRight",
@@ -2951,5 +3014,6 @@ window.addEventListener("keyup", (ev) => {
   input.down[ev.code] = false;
 });
 
+bindMobileControls();
 resetGame();
 requestAnimationFrame(loop);

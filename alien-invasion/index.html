@@ -21,6 +21,17 @@
       <canvas id="gameCanvas" width="1280" height="720" aria-label="Alien Invasion game"></canvas>
     </div>
 
+    <div id="mobileControls" class="mobile-controls" aria-label="Mobile GameBoy controls">
+      <div class="mobile-dpad" aria-label="Directional pad">
+        <button id="mbUp" class="mobile-btn dpad-btn" type="button" aria-label="Move up">▲</button>
+        <button id="mbLeft" class="mobile-btn dpad-btn" type="button" aria-label="Move left">◀</button>
+        <div class="dpad-core" aria-hidden="true"></div>
+        <button id="mbRight" class="mobile-btn dpad-btn" type="button" aria-label="Move right">▶</button>
+        <button id="mbDown" class="mobile-btn dpad-btn" type="button" aria-label="Move down">▼</button>
+      </div>
+      <button id="mbFire" class="mobile-btn fire-btn" type="button" aria-label="Fire bomb">Fire</button>
+    </div>
+
     <footer class="help-bar">
       <span>Move UFO: W/A/S/D or Arrows</span>
       <span>Drop Bombs: Space (hold)</span>
