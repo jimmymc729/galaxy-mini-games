@@ -70,8 +70,9 @@
       (() => {
         "use strict";
 
-        const BASE_WIDTH = 960;
-        const BASE_HEIGHT = 540;
+        // Portrait-first mobile playfield.
+        const BASE_WIDTH = 540;
+        const BASE_HEIGHT = 960;
         const BEST_KEY = "moonjet-cavern-best";
         const ASTRONAUT_SPRITE_SRC = "assets/astronaut.png";
         // Normalized crop tuned for this sprite artwork.
@@ -150,14 +151,14 @@
 
         class Player {
           constructor() {
-            this.x = BASE_WIDTH * 0.28;
+            this.x = BASE_WIDTH * 0.32;
             this.y = BASE_HEIGHT * 0.5;
             this.vy = 0;
-            this.radius = 16;
+            this.radius = 14;
             // Flappy-like tuning: higher gravity + fixed flap velocity.
-            this.gravity = 1180;
-            this.flapVelocity = -315;
-            this.maxFall = 620;
+            this.gravity = 1080;
+            this.flapVelocity = -300;
+            this.maxFall = 600;
             this.maxRise = -360;
             this.thrustVisual = 0;
           }
@@ -273,24 +274,24 @@
         class ObstacleManager {
           constructor() {
             this.obstacles = [];
-            this.currentSpeed = 220;
-            this.currentGap = 190;
-            this.currentSpacing = 290;
-            this.nextSpawnX = BASE_WIDTH + 240;
+            this.currentSpeed = 165;
+            this.currentGap = 290;
+            this.currentSpacing = 250;
+            this.nextSpawnX = BASE_WIDTH + 180;
           }
 
           reset() {
             this.obstacles.length = 0;
-            this.currentSpeed = 220;
-            this.currentGap = 190;
-            this.currentSpacing = 290;
-            this.nextSpawnX = BASE_WIDTH + 240;
+            this.currentSpeed = 165;
+            this.currentGap = 290;
+            this.currentSpacing = 250;
+            this.nextSpawnX = BASE_WIDTH + 180;
           }
 
           createObstacle(x, gapH) {
-            const margin = 78;
+            const margin = 150;
             const gapY = rand(margin, BASE_HEIGHT - margin - gapH);
-            const width = rand(86, 108);
+            const width = rand(64, 86);
             return {
               x,
               width,
@@ -299,8 +300,8 @@
               passed: false,
               topTipX: rand(0.4, 0.6),
               botTipX: rand(0.38, 0.62),
-              topShoulder: rand(18, 34),
-              botShoulder: rand(18, 34),
+              topShoulder: rand(14, 26),
+              botShoulder: rand(14, 26),
               topChip: rand(0.08, 0.16),
               botChip: rand(0.08, 0.16),
             };
@@ -308,16 +309,16 @@
 
           update(dt, elapsed, score, player, onPass) {
             // Gradual ramp: faster scroll and a tighter tunnel as the run continues.
-            this.currentSpeed = 220 + Math.min(170, elapsed * 5 + score * 3.6);
-            this.currentGap = 190 - Math.min(62, elapsed * 0.55 + score * 1.1);
-            this.currentSpacing = 290 - Math.min(88, elapsed * 0.45 + score * 1.25);
+            this.currentSpeed = 165 + Math.min(120, elapsed * 3.8 + score * 2.6);
+            this.currentGap = 290 - Math.min(88, elapsed * 0.65 + score * 1.3);
+            this.currentSpacing = 250 - Math.min(82, elapsed * 0.36 + score * 1.1);
             // Move the spawn cursor with the scrolling world, then refill ahead of view.
             this.nextSpawnX -= this.currentSpeed * dt;
 
-            while (this.nextSpawnX < BASE_WIDTH + this.currentSpacing + 260) {
-              const gapSize = this.currentGap + rand(-8, 12);
+            while (this.nextSpawnX < BASE_WIDTH + this.currentSpacing + 190) {
+              const gapSize = this.currentGap + rand(-14, 16);
               this.obstacles.push(this.createObstacle(this.nextSpawnX, gapSize));
-              this.nextSpawnX += this.currentSpacing + rand(-34, 34);
+              this.nextSpawnX += this.currentSpacing + rand(-28, 30);
             }
 
             for (let i = this.obstacles.length - 1; i >= 0; i -= 1) {
@@ -576,9 +577,9 @@
         class ParallaxCave {
           constructor() {
             this.layers = [
-              { speed: 0.12, topBase: 82, bottomBase: 78, amp: 16, freq: 0.01, color: "#2c3442", edge: "rgba(161,177,201,0.28)", offset: 0 },
-              { speed: 0.22, topBase: 66, bottomBase: 64, amp: 13, freq: 0.013, color: "#3a4456", edge: "rgba(188,204,228,0.24)", offset: 0 },
-              { speed: 0.34, topBase: 50, bottomBase: 48, amp: 10, freq: 0.018, color: "#4a5568", edge: "rgba(219,229,245,0.2)", offset: 0 },
+              { speed: 0.12, topBase: 172, bottomBase: 168, amp: 26, freq: 0.01, color: "#2c3442", edge: "rgba(161,177,201,0.28)", offset: 0 },
+              { speed: 0.22, topBase: 138, bottomBase: 134, amp: 22, freq: 0.013, color: "#3a4456", edge: "rgba(188,204,228,0.24)", offset: 0 },
+              { speed: 0.34, topBase: 106, bottomBase: 102, amp: 18, freq: 0.018, color: "#4a5568", edge: "rgba(219,229,245,0.2)", offset: 0 },
             ];
             this.features = this.layers.map(() =>
               Array.from({ length: 26 }, () => ({
