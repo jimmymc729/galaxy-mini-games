@@ -7,10 +7,8 @@ const uiHighScore = document.getElementById("highScoreValue");
 const uiStatus = document.getElementById("statusValue");
 const nextCityButton = document.getElementById("nextCityButton");
 const pauseButton = document.getElementById("pauseButton");
-const mbUp = document.getElementById("mbUp");
-const mbDown = document.getElementById("mbDown");
-const mbLeft = document.getElementById("mbLeft");
-const mbRight = document.getElementById("mbRight");
+const mbStickZone = document.getElementById("mbStickZone");
+const mbStickKnob = document.getElementById("mbStickKnob");
 const mbFire = document.getElementById("mbFire");
 
 const HIGH_SCORE_KEY = "ufo_city_rampage_high_score_v1";
@@ -22,6 +20,11 @@ const WORLD = {
   tileSize: 48,
   groundY: 640,
   gravityBomb: 1350,
+};
+
+const VIEWPORTS = {
+  desktop: { width: 1280, height: 720 }, // 16:9
+  mobile: { width: 1080, height: 800 },  // taller mobile framing
 };
 
 const BUILDING_PHYSICS = {
@@ -866,6 +869,12 @@ const input = {
   pressed: Object.create(null),
 };
 
+const mobileStick = {
+  active: false,
+  x: 0,
+  y: 0,
+};
+
 const debug = {
   enabled: false,
   entries: [],
@@ -1221,13 +1230,15 @@ function clearPressed() {
 }
 
 function axisX() {
-  return (keyDown("ArrowLeft") || keyDown("KeyA") ? -1 : 0)
+  const digital = (keyDown("ArrowLeft") || keyDown("KeyA") ? -1 : 0)
     + (keyDown("ArrowRight") || keyDown("KeyD") ? 1 : 0);
+  return clamp(digital + (mobileStick.active ? mobileStick.x : 0), -1, 1);
 }
 
 function axisY() {
-  return (keyDown("ArrowUp") || keyDown("KeyW") ? -1 : 0)
+  const digital = (keyDown("ArrowUp") || keyDown("KeyW") ? -1 : 0)
     + (keyDown("ArrowDown") || keyDown("KeyS") ? 1 : 0);
+  return clamp(digital + (mobileStick.active ? mobileStick.y : 0), -1, 1);
 }
 
 function update(dt) {
@@ -2899,9 +2910,101 @@ function randInt(min, max) {
   return Math.floor(randomRange(min, max + 1));
 }
 
+function shouldUseMobileViewport() {
+  return window.matchMedia("(hover: none) and (pointer: coarse)").matches && window.innerWidth <= 900;
+}
+
+function applyViewportProfile() {
+  const vp = shouldUseMobileViewport() ? VIEWPORTS.mobile : VIEWPORTS.desktop;
+  if (canvas.width === vp.width && canvas.height === vp.height) return;
+
+  canvas.width = vp.width;
+  canvas.height = vp.height;
+  WORLD.viewWidth = vp.width;
+  WORLD.viewHeight = vp.height;
+
+  if (state) {
+    state.cameraX = clamp(state.cameraX, 0, Math.max(0, WORLD.width - WORLD.viewWidth));
+    if (state.ufo) {
+      state.ufo.y = clamp(state.ufo.y, Math.max(72, state.ufo.h * 0.55), WORLD.groundY - 120);
+    }
+  }
+}
+
 function setVirtualKey(code, down) {
   input.down[code] = !!down;
   if (down) input.pressed[code] = true;
+}
+
+function setStickVisual(dx, dy) {
+  if (!mbStickKnob) return;
+  mbStickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+}
+
+function resetStick() {
+  mobileStick.active = false;
+  mobileStick.x = 0;
+  mobileStick.y = 0;
+  setStickVisual(0, 0);
+}
+
+function bindVirtualStick(zone, knob) {
+  if (!zone || !knob) return;
+  let activePointerId = null;
+
+  const updateFromPointer = (clientX, clientY) => {
+    const rect = zone.getBoundingClientRect();
+    const cx = rect.left + rect.width * 0.5;
+    const cy = rect.top + rect.height * 0.5;
+    const dx = clientX - cx;
+    const dy = clientY - cy;
+    const radius = Math.max(24, rect.width * 0.32);
+    const mag = Math.hypot(dx, dy);
+    const clampedMag = Math.min(radius, mag);
+    const inv = mag > 0.0001 ? 1 / mag : 0;
+    const px = dx * inv * clampedMag;
+    const py = dy * inv * clampedMag;
+
+    mobileStick.active = true;
+    mobileStick.x = clamp(px / radius, -1, 1);
+    mobileStick.y = clamp(py / radius, -1, 1);
+    setStickVisual(px, py);
+  };
+
+  const onStart = (ev) => {
+    if (activePointerId != null) return;
+    activePointerId = ev.pointerId;
+    if (typeof zone.setPointerCapture === "function") {
+      try {
+        zone.setPointerCapture(ev.pointerId);
+      } catch {
+        // ignore capture failures
+      }
+    }
+    ev.preventDefault();
+    unlockAudio();
+    updateFromPointer(ev.clientX, ev.clientY);
+  };
+
+  const onMove = (ev) => {
+    if (ev.pointerId !== activePointerId) return;
+    ev.preventDefault();
+    updateFromPointer(ev.clientX, ev.clientY);
+  };
+
+  const onEnd = (ev) => {
+    if (activePointerId != null && ev.pointerId !== activePointerId) return;
+    activePointerId = null;
+    ev.preventDefault();
+    resetStick();
+  };
+
+  zone.addEventListener("pointerdown", onStart);
+  zone.addEventListener("pointermove", onMove);
+  zone.addEventListener("pointerup", onEnd);
+  zone.addEventListener("pointercancel", onEnd);
+  zone.addEventListener("pointerleave", onEnd);
+  zone.addEventListener("lostpointercapture", onEnd);
 }
 
 function bindVirtualHold(button, code) {
@@ -2940,18 +3043,12 @@ function bindVirtualHold(button, code) {
 }
 
 function resetVirtualInputs() {
-  setVirtualKey("ArrowUp", false);
-  setVirtualKey("ArrowDown", false);
-  setVirtualKey("ArrowLeft", false);
-  setVirtualKey("ArrowRight", false);
   setVirtualKey("Space", false);
+  resetStick();
 }
 
 function bindMobileControls() {
-  bindVirtualHold(mbUp, "ArrowUp");
-  bindVirtualHold(mbDown, "ArrowDown");
-  bindVirtualHold(mbLeft, "ArrowLeft");
-  bindVirtualHold(mbRight, "ArrowRight");
+  bindVirtualStick(mbStickZone, mbStickKnob);
   bindVirtualHold(mbFire, "Space");
 
   window.addEventListener("blur", resetVirtualInputs);
@@ -3014,6 +3111,10 @@ window.addEventListener("keyup", (ev) => {
   input.down[ev.code] = false;
 });
 
+window.addEventListener("resize", applyViewportProfile);
+window.addEventListener("orientationchange", applyViewportProfile);
+
 bindMobileControls();
+applyViewportProfile();
 resetGame();
 requestAnimationFrame(loop);
