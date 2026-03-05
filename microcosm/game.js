@@ -1,7 +1,6 @@
 (function () {
   'use strict';
 
-  // TODO: Add touch steering + gesture-based boost for mobile-first controls.
   // TODO: Add unlockable organism skins and biome-specific visual variants.
   // TODO: Replace synthesized audio with authored ambient and SFX assets.
 
@@ -691,8 +690,15 @@
       this.mouseY = 0;
       this.hasMouse = false;
       this.lastKeyboardInput = -999;
+      this.lastTouchInput = -999;
       this.mouseTakeoverDistanceSq = 16;
       this.mouseTakeoverDelay = 0.12;
+      this.mouseSuppressionAfterTouch = 0.6;
+      this.touchActive = false;
+      this.touchX = 0;
+      this.touchY = 0;
+      this.primaryTouchId = null;
+      this.touchBoost = false;
       this.keys = {
         up: false,
         down: false,
@@ -713,8 +719,49 @@
       return this.keys.up || this.keys.down || this.keys.left || this.keys.right;
     }
 
+    findTouchById(touchList, touchId) {
+      if (touchId === null || !touchList) {
+        return null;
+      }
+      for (let i = 0; i < touchList.length; i += 1) {
+        if (touchList[i].identifier === touchId) {
+          return touchList[i];
+        }
+      }
+      return null;
+    }
+
+    updateTouchPosition(touch) {
+      if (!touch) {
+        return;
+      }
+      const rect = this.canvas.getBoundingClientRect();
+      this.touchX = touch.clientX - rect.left;
+      this.touchY = touch.clientY - rect.top;
+      this.lastTouchInput = this.nowSeconds();
+      this.hasMouse = false;
+    }
+
+    updateTouchPositionFromClient(clientX, clientY) {
+      const rect = this.canvas.getBoundingClientRect();
+      this.touchX = clientX - rect.left;
+      this.touchY = clientY - rect.top;
+      this.lastTouchInput = this.nowSeconds();
+      this.hasMouse = false;
+    }
+
+    setTouchBoost(active) {
+      this.touchBoost = Boolean(active);
+      if (this.touchBoost) {
+        this.activeControl = 'touch';
+      }
+    }
+
     bindEvents() {
       window.addEventListener('mousemove', (event) => {
+        if (this.nowSeconds() - this.lastTouchInput < this.mouseSuppressionAfterTouch) {
+          return;
+        }
         const rect = this.canvas.getBoundingClientRect();
         const nextX = event.clientX - rect.left;
         const nextY = event.clientY - rect.top;
@@ -732,6 +779,61 @@
           this.activeControl = 'mouse';
         }
       });
+
+      if (window.PointerEvent) {
+        this.canvas.addEventListener(
+          'pointerdown',
+          (event) => {
+            if (event.pointerType !== 'touch' && event.pointerType !== 'pen') {
+              return;
+            }
+            event.preventDefault();
+            this.activeControl = 'touch';
+            this.primaryTouchId = event.pointerId;
+            this.touchActive = true;
+            this.updateTouchPositionFromClient(event.clientX, event.clientY);
+            if (typeof this.canvas.setPointerCapture === 'function') {
+              try {
+                this.canvas.setPointerCapture(event.pointerId);
+              } catch (error) {
+                // Pointer capture can fail on some mobile browsers; ignore.
+              }
+            }
+          },
+          { passive: false }
+        );
+
+        this.canvas.addEventListener(
+          'pointermove',
+          (event) => {
+            if (event.pointerType !== 'touch' && event.pointerType !== 'pen') {
+              return;
+            }
+            if (this.primaryTouchId !== null && event.pointerId !== this.primaryTouchId) {
+              return;
+            }
+            event.preventDefault();
+            this.activeControl = 'touch';
+            this.touchActive = true;
+            this.updateTouchPositionFromClient(event.clientX, event.clientY);
+          },
+          { passive: false }
+        );
+
+        const endPointerTouch = (event) => {
+          if (event.pointerType !== 'touch' && event.pointerType !== 'pen') {
+            return;
+          }
+          if (this.primaryTouchId !== null && event.pointerId !== this.primaryTouchId) {
+            return;
+          }
+          this.primaryTouchId = null;
+          this.touchActive = false;
+        };
+
+        this.canvas.addEventListener('pointerup', endPointerTouch, { passive: true });
+        this.canvas.addEventListener('pointercancel', endPointerTouch, { passive: true });
+      }
 
       window.addEventListener('keydown', (event) => {
         const key = event.key.toLowerCase();
@@ -808,9 +910,68 @@
         }
       });
 
-      this.canvas.addEventListener('touchstart', () => {
-        this.hasMouse = false;
-      });
+      this.canvas.addEventListener(
+        'touchstart',
+        (event) => {
+          if (!event.touches.length) {
+            return;
+          }
+          event.preventDefault();
+          this.activeControl = 'touch';
+          if (this.primaryTouchId === null) {
+            const touch = event.changedTouches[0] || event.touches[0];
+            if (!touch) {
+              return;
+            }
+            this.primaryTouchId = touch.identifier;
+            this.touchActive = true;
+            this.updateTouchPosition(touch);
+          } else {
+            const touch = this.findTouchById(event.touches, this.primaryTouchId);
+            if (!touch) {
+              return;
+            }
+            this.touchActive = true;
+            this.updateTouchPosition(touch);
+          }
+        },
+        { passive: false }
+      );
+
+      this.canvas.addEventListener(
+        'touchmove',
+        (event) => {
+          if (this.primaryTouchId === null) {
+            return;
+          }
+          event.preventDefault();
+          const touch = this.findTouchById(event.touches, this.primaryTouchId);
+          if (!touch) {
+            return;
+          }
+          this.activeControl = 'touch';
+          this.touchActive = true;
+          this.updateTouchPosition(touch);
+        },
+        { passive: false }
+      );
+
+      const clearTouch = (event) => {
+        if (this.primaryTouchId === null) {
+          return;
+        }
+        const stillActiveTouch = this.findTouchById(event.touches, this.primaryTouchId);
+        if (stillActiveTouch) {
+          this.touchActive = true;
+          this.updateTouchPosition(stillActiveTouch);
+          return;
+        }
+        this.primaryTouchId = null;
+        this.touchActive = false;
+      };
+
+      window.addEventListener('touchend', clearTouch, { passive: true });
+      window.addEventListener('touchcancel', clearTouch, { passive: true });
     }
 
     consumePausePressed() {
@@ -841,6 +1002,11 @@
           desiredAngle = player.angle + yAxis * 0.3;
           hasDirection = true;
         }
+      } else if (this.activeControl === 'touch' && this.touchActive) {
+        const worldX = (this.touchX - viewport.width * 0.5) / camera.zoom + camera.x;
+        const worldY = (this.touchY - viewport.height * 0.5) / camera.zoom + camera.y;
+        desiredAngle = Math.atan2(worldY - player.head.y, worldX - player.head.x);
+        hasDirection = true;
       } else if (this.activeControl === 'mouse' && this.hasMouse) {
         const worldX = (this.mouseX - viewport.width * 0.5) / camera.zoom + camera.x;
         const worldY = (this.mouseY - viewport.height * 0.5) / camera.zoom + camera.y;
@@ -850,7 +1016,7 @@
 
       return {
         desiredAngle: hasDirection ? desiredAngle : player.angle,
-        boost: this.keys.boost
+        boost: this.keys.boost || this.touchBoost
       };
     }
   }
@@ -2067,6 +2233,7 @@
         hudScore: document.getElementById('hud-score'),
         muteButton: document.getElementById('mute-toggle'),
         settingsToggle: document.getElementById('settings-toggle'),
+        touchBoost: document.getElementById('touch-boost'),
         startScreen: document.getElementById('start-screen'),
         controlsPanel: document.getElementById('controls-panel'),
         settingsPanel: document.getElementById('settings-panel'),
@@ -2088,6 +2255,7 @@
       this.setPanelVisibility('settings', false);
       this.setGameOver(false);
       this.showStart(true);
+      this.updateTouchBoostVisibility();
     }
 
     bindEvents() {
@@ -2099,12 +2267,14 @@
         this.setPanelVisibility('settings', false);
         this.setGameOver(false);
         this.game.startRun();
+        this.updateTouchBoostVisibility();
       });
 
       this.el.playAgain.addEventListener('click', () => {
         this.game.audio.unlock();
         this.game.audio.playUi('start');
         this.game.forcePlayerRespawn();
+        this.updateTouchBoostVisibility();
       });
 
       this.el.controlsButton.addEventListener('click', () => {
@@ -2169,6 +2339,30 @@
         this.persistSettings();
       });
 
+      const setTouchBoostState = (active) => {
+        this.game.input.setTouchBoost(active);
+        this.el.touchBoost.classList.toggle('touch-boost--active', active);
+      };
+
+      this.el.touchBoost.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        setTouchBoostState(true);
+      });
+      this.el.touchBoost.addEventListener('pointerup', () => setTouchBoostState(false));
+      this.el.touchBoost.addEventListener('pointercancel', () => setTouchBoostState(false));
+      this.el.touchBoost.addEventListener('pointerleave', () => setTouchBoostState(false));
+      this.el.touchBoost.addEventListener('touchstart', (event) => {
+        event.preventDefault();
+        setTouchBoostState(true);
+      }, { passive: false });
+      this.el.touchBoost.addEventListener('touchend', () => setTouchBoostState(false), { passive: true });
+      this.el.touchBoost.addEventListener('touchcancel', () => setTouchBoostState(false), { passive: true });
+      this.el.touchBoost.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        setTouchBoostState(true);
+      });
+      window.addEventListener('mouseup', () => setTouchBoostState(false));
+
     }
 
     persistSettings() {
@@ -2198,15 +2392,40 @@
       return !panel.hidden;
     }
 
+    isTouchDevice() {
+      return (
+        window.matchMedia('(pointer: coarse)').matches ||
+        'ontouchstart' in window ||
+        navigator.maxTouchPoints > 0
+      );
+    }
+
+    updateTouchBoostVisibility() {
+      const overlaysOpen =
+        !this.el.startScreen.hidden ||
+        !this.el.gameOver.hidden ||
+        this.isPanelVisible('controls') ||
+        this.isPanelVisible('settings');
+      const show = this.game.running && !overlaysOpen && this.isTouchDevice();
+
+      this.el.touchBoost.hidden = !show;
+      if (!show) {
+        this.el.touchBoost.classList.remove('touch-boost--active');
+        this.game.input.setTouchBoost(false);
+      }
+    }
+
     setPanelVisibility(panelName, visible) {
       const panel = panelName === 'controls' ? this.el.controlsPanel : this.el.settingsPanel;
       panel.hidden = !visible;
       panel.classList.toggle('overlay--visible', visible);
+      this.updateTouchBoostVisibility();
     }
 
     showStart(show) {
       this.el.startScreen.hidden = !show;
       this.el.startScreen.classList.toggle('overlay--visible', show);
+      this.updateTouchBoostVisibility();
     }
 
     setGameOver(show, stats) {
@@ -2216,6 +2435,7 @@
         this.el.finalSize.textContent = String(stats.size);
         this.el.finalScore.textContent = String(stats.score);
       }
+      this.updateTouchBoostVisibility();
     }
 
     updateHUD() {
@@ -2281,6 +2501,10 @@
       this.resetWorld();
 
       window.addEventListener('resize', () => this.resize());
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', () => this.resize());
+        window.visualViewport.addEventListener('scroll', () => this.resize());
+      }
       requestAnimationFrame((time) => this.frame(time));
     }
 
@@ -2457,8 +2681,13 @@
     }
 
     resize() {
-      this.viewport.width = window.innerWidth;
-      this.viewport.height = window.innerHeight;
+      if (window.visualViewport) {
+        this.viewport.width = Math.max(1, Math.round(window.visualViewport.width));
+        this.viewport.height = Math.max(1, Math.round(window.visualViewport.height));
+      } else {
+        this.viewport.width = Math.max(1, window.innerWidth);
+        this.viewport.height = Math.max(1, window.innerHeight);
+      }
       this.canvas.width = Math.floor(this.viewport.width * this.dpr);
       this.canvas.height = Math.floor(this.viewport.height * this.dpr);
     }
