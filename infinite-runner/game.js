@@ -6,6 +6,19 @@ const healthEl = document.getElementById("healthValue");
 const healthFillEl = document.getElementById("healthFill");
 const speedEl = document.getElementById("speedValue");
 const musicToggleEl = document.getElementById("musicToggle");
+const mobileHealthEl = document.getElementById("mobileHealthValue");
+const mobileScoreEl = document.getElementById("mobileScoreValue");
+const mobileBestEl = document.getElementById("mobileBestValue");
+const mobileModeEl = document.getElementById("mobileModeValue");
+const pauseBtnEl = document.getElementById("pauseBtn");
+const movePadEl = document.getElementById("movePad");
+const moveNubEl = document.getElementById("moveNub");
+const fireBtnEl = document.getElementById("fireBtn");
+const titlebarEl = document.querySelector(".titlebar");
+const mobileStatusShellEl = document.querySelector(".mobile-status");
+const mobileControlsShellEl = document.querySelector(".mobile-controls");
+
+const MOBILE_QUERY = window.matchMedia("(max-width: 900px) and (pointer: coarse)");
 
 const STORAGE_KEY = "space-runner-best-kills";
 const WORLD_MAX_Z = 120;
@@ -80,6 +93,7 @@ const state = {
   phase: "ready",
   width: 960,
   height: 520,
+  isMobileViewport: MOBILE_QUERY.matches,
   speed: BASE_SPEED,
   distance: 0,
   kills: 0,
@@ -94,6 +108,10 @@ const state = {
   spawnGapFloor: SPAWN_GAP_FLOOR_START,
   lastTime: performance.now(),
   cameraShake: 0,
+  powerupFlash: 0,
+  powerupFlashX: 0.5,
+  powerupFlashY: 0.58,
+  powerupHue: 132,
   touchStart: null,
   sparks: [],
   shots: [],
@@ -121,6 +139,15 @@ const state = {
     runClock: 0,
     fireCooldown: 0,
     sprayTimer: 0,
+  },
+  mobile: {
+    movePointerId: null,
+    firePointerId: null,
+    fireInterval: null,
+    laneCooldownUntil: 0,
+    jumpArmed: true,
+    nubX: 0,
+    nubY: 0,
   },
 };
 
@@ -272,9 +299,32 @@ function playCrashSfx() {
 }
 
 function playPowerupSfx() {
-  playTone("triangle", 320, 860, 0.16, 0.06, 0.0001);
-  playTone("square", 420, 1220, 0.14, 0.04, 0.0001);
-  playNoise(0.07, 0.03, 0.0001, 1800, 9800);
+  const ctx = ensureAudio();
+  if (!ctx || !audioState.sfxBus) return;
+
+  const now = ctx.currentTime;
+  const arp = [0, 4, 7, 12];
+  for (let i = 0; i < arp.length; i += 1) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const start = now + i * 0.045;
+    const note = 67 + arp[i];
+    osc.type = i === arp.length - 1 ? "triangle" : "sine";
+    osc.frequency.setValueAtTime(midiToFreq(note), start);
+    osc.frequency.exponentialRampToValueAtTime(midiToFreq(note + 7), start + 0.11);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(i === arp.length - 1 ? 0.08 : 0.055, start + 0.016);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.21);
+    osc.connect(gain);
+    gain.connect(audioState.sfxBus);
+    osc.start(start);
+    osc.stop(start + 0.22);
+  }
+
+  // Bright confirmation ping on top.
+  playTone("square", 1180, 1680, 0.14, 0.048, 0.0001);
+  // Airy shimmer tail.
+  playNoise(0.1, 0.035, 0.0001, 2400, 10800);
 }
 
 function midiToFreq(note) {
@@ -507,10 +557,34 @@ async function loadAssets() {
   }
 }
 
+function syncViewportMode() {
+  state.isMobileViewport = MOBILE_QUERY.matches;
+}
+
 function resizeCanvas() {
-  const maxWidth = Math.min(window.innerWidth - 24, 1100);
-  const width = clamp(maxWidth, 320, 1100);
-  const height = Math.round(width * 0.54);
+  syncViewportMode();
+
+  let width;
+  let height;
+
+  if (state.isMobileViewport) {
+    const viewportW = Math.max(320, window.innerWidth);
+    const viewportH = Math.max(560, window.innerHeight);
+    const topChrome =
+      (titlebarEl ? titlebarEl.offsetHeight : 0) +
+      (mobileStatusShellEl ? mobileStatusShellEl.offsetHeight : 0) +
+      (mobileControlsShellEl ? mobileControlsShellEl.offsetHeight : 0);
+    const available = viewportH - topChrome - 10;
+
+    width = viewportW;
+    const minHeight = Math.round(width * 0.92);
+    const maxHeight = Math.round(width * 1.55);
+    height = clamp(Math.round(available), minHeight, maxHeight);
+  } else {
+    const maxWidth = Math.min(window.innerWidth - 24, 1100);
+    width = clamp(maxWidth, 320, 1100);
+    height = Math.round(width * 0.54);
+  }
 
   state.width = width;
   state.height = height;
@@ -538,6 +612,10 @@ function resetGame() {
   state.nextSpawn = random(SPAWN_GAP_START_MIN, SPAWN_GAP_START_MAX);
   state.spawnGapFloor = SPAWN_GAP_FLOOR_START;
   state.cameraShake = 0;
+  state.powerupFlash = 0;
+  state.powerupFlashX = state.width * 0.5;
+  state.powerupFlashY = state.height * 0.58;
+  state.powerupHue = 132;
   state.obstacles = [];
   state.sparks = [];
   state.shots = [];
@@ -567,8 +645,14 @@ function startGame() {
   state.phase = "running";
 }
 
+function togglePause() {
+  if (state.phase === "gameover" || state.phase === "ready") return;
+  state.phase = state.phase === "paused" ? "running" : "paused";
+  updateHud();
+}
+
 function moveLane(dir) {
-  if (state.phase === "gameover") return;
+  if (state.phase === "gameover" || state.phase === "paused") return;
 
   if (state.phase === "ready") {
     startGame();
@@ -583,7 +667,7 @@ function moveLane(dir) {
 }
 
 function jump() {
-  if (state.phase === "gameover") return;
+  if (state.phase === "gameover" || state.phase === "paused") return;
 
   if (state.phase === "ready") {
     startGame();
@@ -605,7 +689,7 @@ function spawnAlienDestruction(obstacle) {
   const x = laneX(obstacle.lane, obstacle.z);
   const y = laneY(obstacle.z);
   const depth = projectZ(obstacle.z).depth;
-  const radius = lerp(12, 58, depth) * (obstacle.scale || 1);
+  const radius = lerp(12, 58, depth) * getAlienScale(obstacle);
 
   state.blasts.push({
     x,
@@ -660,7 +744,7 @@ function spawnAlienDestruction(obstacle) {
 }
 
 function shoot() {
-  if (state.phase === "gameover") return;
+  if (state.phase === "gameover" || state.phase === "paused") return;
 
   if (state.phase === "ready") {
     startGame();
@@ -674,6 +758,7 @@ function shoot() {
   for (const offset of offsets) {
     const shotLane = clamp(state.player.lane + offset, -1.35, 1.35);
     const shot = {
+      spray: sprayActive,
       lane: shotLane,
       z: PLAYER_Z + 0.8,
       speed: sprayActive ? random(88, 114) : random(94, 122),
@@ -916,8 +1001,12 @@ function updateShots(dt) {
     let hitIndex = -1;
     for (let j = state.obstacles.length - 1; j >= 0; j -= 1) {
       const obstacle = state.obstacles[j];
-      const laneHit = Math.abs(obstacle.lane - shot.lane) < 0.45;
-      const zHit = Math.abs(obstacle.z - shot.z) < 2.4;
+      const sprayLaneBoost = shot.spray ? (state.isMobileViewport ? 0.12 : 0.08) : 0;
+      const sprayZBoost = shot.spray ? (state.isMobileViewport ? 0.34 : 0.22) : 0;
+      const laneTolerance = 0.45 + sprayLaneBoost;
+      const zTolerance = 2.4 + sprayZBoost;
+      const laneHit = Math.abs(obstacle.lane - shot.lane) < laneTolerance;
+      const zHit = Math.abs(obstacle.z - shot.z) < zTolerance;
       if (laneHit && zHit) {
         hitIndex = j;
         break;
@@ -935,10 +1024,14 @@ function updateShots(dt) {
 }
 
 function updateBonuses(dt) {
-  const bandMin = PLAYER_Z - 1.45;
-  const bandMax = PLAYER_Z + 1.5;
-  const playerLaneMin = Math.min(state.player.prevLane, state.player.lane) - 0.2;
-  const playerLaneMax = Math.max(state.player.prevLane, state.player.lane) + 0.2;
+  // Bonus pickup is intentionally a bit forgiving so side catches still count.
+  const zForgiveness = state.isMobileViewport ? 0.34 : 0.24;
+  const bandMin = PLAYER_Z - (1.45 + zForgiveness);
+  const bandMax = PLAYER_Z + (1.5 + zForgiveness);
+  const laneShift = Math.abs(state.player.targetLane - state.player.lane);
+  const laneForgiveness = (state.isMobileViewport ? 0.2 : 0.12) + laneShift * 0.14;
+  const playerLaneMin = Math.min(state.player.prevLane, state.player.lane) - (0.2 + laneForgiveness);
+  const playerLaneMax = Math.max(state.player.prevLane, state.player.lane) + (0.2 + laneForgiveness);
 
   for (let i = state.bonuses.length - 1; i >= 0; i -= 1) {
     const bonus = state.bonuses[i];
@@ -959,7 +1052,7 @@ function updateBonuses(dt) {
     const overlapsZ = zSweepMax >= bandMin && zSweepMin <= bandMax;
     if (!overlapsZ) continue;
 
-    const bonusHalfWidth = 0.28;
+    const bonusHalfWidth = state.isMobileViewport ? 0.38 : 0.32;
     const bonusLaneMin = bonus.lane - bonusHalfWidth;
     const bonusLaneMax = bonus.lane + bonusHalfWidth;
     const laneMatch = playerLaneMax >= bonusLaneMin && playerLaneMin <= bonusLaneMax;
@@ -968,20 +1061,35 @@ function updateBonuses(dt) {
     state.bonuses.splice(i, 1);
     state.player.sprayTimer = Math.max(state.player.sprayTimer, 6.5);
     playPowerupSfx();
-    addCameraShake(0.18);
+    addCameraShake(0.24);
 
     const x = laneX(bonus.lane, bonus.z);
     const y = laneY(bonus.z);
+    const hue = bonus.hue || 132;
+    state.powerupFlash = Math.max(state.powerupFlash, 1);
+    state.powerupFlashX = x;
+    state.powerupFlashY = y - state.height * 0.08;
+    state.powerupHue = hue;
+
     state.blasts.push({
       x,
       y: y - state.height * 0.07,
-      life: 0.36,
-      maxLife: 0.36,
-      radius: state.height * 0.12,
-      hue: bonus.hue || 132,
+      life: 0.46,
+      maxLife: 0.46,
+      radius: state.height * 0.15,
+      hue,
       shockwave: true,
     });
-    spawnBurst(x, y - state.height * 0.06, 24, 1.2, bonus.hue || 132, 100, 72);
+    state.blasts.push({
+      x,
+      y: y - state.height * 0.07,
+      life: 0.24,
+      maxLife: 0.24,
+      radius: state.height * 0.09,
+      hue: (hue + 22) % 360,
+    });
+    spawnBurst(x, y - state.height * 0.06, 34, 1.36, hue, 100, 74);
+    spawnBurst(x, y - state.height * 0.05, 18, 1.1, (hue + 34) % 360, 96, 80);
   }
 }
 
@@ -1012,7 +1120,7 @@ function updateObstacles(dt) {
     const overlapsZ = zSweepMax >= bandMin && zSweepMin <= bandMax;
     if (!overlapsZ) continue;
 
-    const obstacleHalfWidth = 0.26 + (obstacle.scale || 1) * 0.16;
+    const obstacleHalfWidth = 0.26 + getAlienScale(obstacle) * 0.16;
     const obstacleLaneMin = obstacle.lane - obstacleHalfWidth;
     const obstacleLaneMax = obstacle.lane + obstacleHalfWidth;
     const laneOverlap = playerLaneMax >= obstacleLaneMin && playerLaneMin <= obstacleLaneMax;
@@ -1026,8 +1134,14 @@ function updateObstacles(dt) {
 }
 
 function step(dt) {
+  if (state.phase === "paused") {
+    updateHud();
+    return;
+  }
+
   state.time += dt;
   state.cameraShake = Math.max(0, state.cameraShake - dt * 2.6);
+  state.powerupFlash = Math.max(0, state.powerupFlash - dt * 2.9);
   updateMusic();
 
   updatePlayer(dt);
@@ -1223,6 +1337,11 @@ function obstacleMetrics(obstacle) {
   return { x, y, depth };
 }
 
+function getAlienScale(obstacle) {
+  const baseScale = obstacle.scale || 1;
+  return state.isMobileViewport ? baseScale * 0.78 : baseScale;
+}
+
 function hsla(h, s, l, a) {
   return `hsla(${Math.round(h)} ${s}% ${l}% / ${a})`;
 }
@@ -1281,7 +1400,7 @@ function drawEyeCluster(obstacle, radius, depth) {
 }
 
 function drawAlienObstacle(obstacle, x, y, depth) {
-  const radius = lerp(18, 82, depth) * (obstacle.scale || 1);
+  const radius = lerp(18, 82, depth) * getAlienScale(obstacle);
   const motionT = state.time * (obstacle.bobSpeed || 2.6) + (obstacle.animSeed || 0);
   const sway = Math.sin(motionT * 0.9) * radius * 0.12;
   const bob = Math.sin(motionT) * state.height * (obstacle.bobAmp || 0.04) * (0.32 + depth);
@@ -1806,6 +1925,51 @@ function drawBlasts() {
   }
 }
 
+function drawPowerupFlash() {
+  if (state.powerupFlash <= 0) return;
+  const t = state.powerupFlash;
+  const cx = state.powerupFlashX;
+  const cy = state.powerupFlashY;
+  const hue = state.powerupHue;
+
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+
+  const aura = ctx.createRadialGradient(
+    cx,
+    cy,
+    state.height * 0.04,
+    cx,
+    cy,
+    state.height * 0.46
+  );
+  aura.addColorStop(0, hsla(hue + 18, 100, 78, 0.45 * t));
+  aura.addColorStop(0.45, hsla(hue + 2, 100, 68, 0.2 * t));
+  aura.addColorStop(1, hsla(hue, 100, 56, 0));
+  ctx.fillStyle = aura;
+  ctx.fillRect(0, 0, state.width, state.height);
+
+  const overlay = ctx.createLinearGradient(0, 0, 0, state.height);
+  overlay.addColorStop(0, hsla(hue + 14, 100, 76, 0.12 * t));
+  overlay.addColorStop(1, hsla(hue, 100, 62, 0.05 * t));
+  ctx.fillStyle = overlay;
+  ctx.fillRect(0, 0, state.width, state.height);
+
+  ctx.strokeStyle = hsla(hue + 24, 100, 84, 0.42 * t);
+  ctx.lineWidth = Math.max(2, state.height * 0.006 * t);
+  ctx.beginPath();
+  ctx.arc(cx, cy, state.height * (0.12 + (1 - t) * 0.08), 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = hsla(hue + 36, 100, 90, 0.24 * t);
+  ctx.lineWidth = Math.max(1.5, state.height * 0.004 * t);
+  ctx.beginPath();
+  ctx.arc(cx, cy, state.height * (0.18 + (1 - t) * 0.12), 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
 function drawOverlay() {
   if (!state.assets.ready) {
     ctx.fillStyle = "rgba(1, 8, 20, 0.56)";
@@ -1844,8 +2008,30 @@ function drawOverlay() {
     ctx.font = `800 ${titleSize}px Orbitron, sans-serif`;
     ctx.fillText("Space Runner", state.width / 2, state.height * 0.34);
     ctx.font = `600 ${bodySize}px Rajdhani, sans-serif`;
-    ctx.fillText("Left/Right to lane-shift, Space to fire blaster, Up/W to jump, M toggles music", state.width / 2, state.height * 0.49);
+    const controlsLine = state.isMobileViewport
+      ? "Use left pad to move lanes / jump up, and FIRE button to blast"
+      : "Left/Right to lane-shift, Space to fire blaster, Up/W to jump, M toggles music";
+    ctx.fillText(controlsLine, state.width / 2, state.height * 0.49);
     ctx.fillText("Hit green power cores for spray-shot; miss 25 aliens and your ship explodes", state.width / 2, state.height * 0.56);
+  } else if (state.phase === "paused") {
+    const panelW = state.width * 0.46;
+    const panelH = state.height * 0.2;
+    const panelX = state.width / 2 - panelW / 2;
+    const panelY = state.height * 0.34;
+
+    ctx.fillStyle = "rgba(2, 12, 28, 0.78)";
+    ctx.strokeStyle = "rgba(123, 220, 255, 0.65)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(panelX, panelY, panelW, panelH, 14);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = "#e7f7ff";
+    ctx.font = `800 ${titleSize}px Orbitron, sans-serif`;
+    ctx.fillText("Paused", state.width / 2, panelY + panelH * 0.45);
+    ctx.font = `600 ${bodySize}px Rajdhani, sans-serif`;
+    ctx.fillText("Press P or tap PAUSE to resume", state.width / 2, panelY + panelH * 0.72);
   } else {
     const panelW = state.width * 0.54;
     const panelH = state.height * 0.34;
@@ -1894,6 +2080,25 @@ function updateHud() {
   speedEl.textContent = state.player.sprayTimer > 0
     ? `${speedText} | SPRAY ${state.player.sprayTimer.toFixed(1)}s`
     : speedText;
+
+  if (mobileHealthEl) mobileHealthEl.textContent = String(Math.round(healthPct));
+  if (mobileScoreEl) mobileScoreEl.textContent = String(state.kills);
+  if (mobileBestEl) mobileBestEl.textContent = String(state.bestKills);
+  if (mobileModeEl) {
+    const label = state.phase === "running"
+      ? "PLAY"
+      : state.phase === "paused"
+        ? "PAUSE"
+        : state.phase === "gameover"
+          ? "DOWN"
+          : "READY";
+    mobileModeEl.textContent = label;
+  }
+  if (pauseBtnEl) {
+    const canToggle = state.phase === "running" || state.phase === "paused";
+    pauseBtnEl.disabled = !canToggle;
+    pauseBtnEl.textContent = state.phase === "paused" ? "RESUME (P)" : "PAUSE (P)";
+  }
 }
 
 function render() {
@@ -1915,6 +2120,7 @@ function render() {
   drawSparks();
   drawBlasts();
   ctx.restore();
+  drawPowerupFlash();
   drawOverlay();
 }
 
@@ -1928,8 +2134,146 @@ function tick(time) {
   requestAnimationFrame(tick);
 }
 
+function setMoveNub(offsetX, offsetY) {
+  state.mobile.nubX = offsetX;
+  state.mobile.nubY = offsetY;
+  if (!moveNubEl) return;
+  moveNubEl.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
+}
+
+function resetMovePad() {
+  state.mobile.movePointerId = null;
+  state.mobile.jumpArmed = true;
+  setMoveNub(0, 0);
+}
+
+function stopMobileFireLoop() {
+  if (state.mobile.fireInterval) {
+    clearInterval(state.mobile.fireInterval);
+    state.mobile.fireInterval = null;
+  }
+  state.mobile.firePointerId = null;
+}
+
+function updateMovePad(clientX, clientY) {
+  if (!movePadEl) return;
+  const rect = movePadEl.getBoundingClientRect();
+  const centerX = rect.left + rect.width * 0.5;
+  const centerY = rect.top + rect.height * 0.5;
+  const maxOffset = rect.width * 0.32;
+
+  let dx = clientX - centerX;
+  let dy = clientY - centerY;
+  const distance = Math.hypot(dx, dy);
+  if (distance > maxOffset && distance > 0) {
+    const scale = maxOffset / distance;
+    dx *= scale;
+    dy *= scale;
+  }
+
+  setMoveNub(dx, dy);
+
+  const now = performance.now();
+  const laneThreshold = maxOffset * 0.34;
+  if (Math.abs(dx) > laneThreshold && now >= state.mobile.laneCooldownUntil) {
+    moveLane(dx > 0 ? 1 : -1);
+    state.mobile.laneCooldownUntil = now + 128;
+  }
+
+  const jumpThreshold = maxOffset * 0.55;
+  if (dy < -jumpThreshold && state.mobile.jumpArmed) {
+    jump();
+    state.mobile.jumpArmed = false;
+  }
+  if (dy > -jumpThreshold * 0.25) {
+    state.mobile.jumpArmed = true;
+  }
+}
+
+function handleMovePadDown(event) {
+  if (!state.isMobileViewport || !movePadEl) return;
+  ensureAudio();
+  event.preventDefault();
+
+  if (state.phase === "gameover") {
+    resetGame();
+  }
+  if (state.mobile.movePointerId !== null) return;
+
+  state.mobile.movePointerId = event.pointerId;
+  if (movePadEl.setPointerCapture) {
+    movePadEl.setPointerCapture(event.pointerId);
+  }
+  updateMovePad(event.clientX, event.clientY);
+}
+
+function handleMovePadMove(event) {
+  if (!state.isMobileViewport || !movePadEl) return;
+  if (state.mobile.movePointerId !== event.pointerId) return;
+  event.preventDefault();
+  updateMovePad(event.clientX, event.clientY);
+}
+
+function handleMovePadUp(event) {
+  if (!movePadEl) return;
+  if (state.mobile.movePointerId !== event.pointerId) return;
+  event.preventDefault();
+  if (movePadEl.releasePointerCapture) {
+    try {
+      movePadEl.releasePointerCapture(event.pointerId);
+    } catch (_) {
+      // Ignore release failures.
+    }
+  }
+  resetMovePad();
+}
+
+function handleFireDown(event) {
+  if (!state.isMobileViewport || !fireBtnEl) return;
+  ensureAudio();
+  event.preventDefault();
+
+  if (state.phase === "gameover") {
+    resetGame();
+  }
+  if (state.phase === "paused") return;
+
+  stopMobileFireLoop();
+  state.mobile.firePointerId = event.pointerId;
+  if (fireBtnEl.setPointerCapture) {
+    fireBtnEl.setPointerCapture(event.pointerId);
+  }
+
+  shoot();
+  state.mobile.fireInterval = setInterval(() => {
+    if (state.phase === "running" || state.phase === "ready") {
+      shoot();
+    }
+  }, 142);
+}
+
+function handleFireUp(event) {
+  if (!fireBtnEl) return;
+  if (state.mobile.firePointerId !== event.pointerId) return;
+  event.preventDefault();
+  if (fireBtnEl.releasePointerCapture) {
+    try {
+      fireBtnEl.releasePointerCapture(event.pointerId);
+    } catch (_) {
+      // Ignore release failures.
+    }
+  }
+  stopMobileFireLoop();
+}
+
 function handleKeydown(event) {
   ensureAudio();
+
+  if (event.code === "KeyP") {
+    event.preventDefault();
+    togglePause();
+    return;
+  }
 
   if (state.phase === "gameover") {
     if (event.code === "Enter" || event.code === "KeyR") {
@@ -1971,6 +2315,12 @@ function handleKeydown(event) {
 }
 
 function handlePointerDown(event) {
+  if (state.isMobileViewport) {
+    if (state.phase === "gameover") {
+      resetGame();
+    }
+    return;
+  }
   ensureAudio();
   state.touchStart = {
     x: event.clientX,
@@ -1980,6 +2330,8 @@ function handlePointerDown(event) {
 }
 
 function handlePointerUp(event) {
+  if (state.isMobileViewport) return;
+
   if (state.phase === "gameover") {
     resetGame();
     state.touchStart = null;
@@ -2019,12 +2371,46 @@ if (musicToggleEl) {
     setMusicEnabled(!audioState.musicEnabled);
   });
 }
+if (pauseBtnEl) {
+  pauseBtnEl.addEventListener("click", () => {
+    ensureAudio();
+    togglePause();
+  });
+}
 canvas.addEventListener("pointerdown", handlePointerDown);
 canvas.addEventListener("pointerup", handlePointerUp);
 canvas.addEventListener("pointercancel", () => {
   state.touchStart = null;
 });
+if (movePadEl) {
+  movePadEl.addEventListener("pointerdown", handleMovePadDown);
+  movePadEl.addEventListener("pointermove", handleMovePadMove);
+  movePadEl.addEventListener("pointerup", handleMovePadUp);
+  movePadEl.addEventListener("pointercancel", handleMovePadUp);
+}
+if (fireBtnEl) {
+  fireBtnEl.addEventListener("pointerdown", handleFireDown);
+  fireBtnEl.addEventListener("pointerup", handleFireUp);
+  fireBtnEl.addEventListener("pointercancel", handleFireUp);
+}
 window.addEventListener("resize", resizeCanvas);
+window.addEventListener("blur", () => {
+  stopMobileFireLoop();
+  resetMovePad();
+});
+if (MOBILE_QUERY.addEventListener) {
+  MOBILE_QUERY.addEventListener("change", () => {
+    syncViewportMode();
+    resizeCanvas();
+    updateHud();
+  });
+} else if (MOBILE_QUERY.addListener) {
+  MOBILE_QUERY.addListener(() => {
+    syncViewportMode();
+    resizeCanvas();
+    updateHud();
+  });
+}
 
 resizeCanvas();
 seedVisuals();
