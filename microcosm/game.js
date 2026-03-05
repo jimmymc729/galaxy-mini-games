@@ -695,10 +695,21 @@
       this.mouseTakeoverDelay = 0.12;
       this.mouseSuppressionAfterTouch = 0.6;
       this.touchActive = false;
-      this.touchX = 0;
-      this.touchY = 0;
+      this.touchPadStartX = 0;
+      this.touchPadStartY = 0;
+      this.touchPadX = 0;
+      this.touchPadY = 0;
+      this.touchDeadzone = 10;
       this.primaryTouchId = null;
       this.primaryTouchSource = null;
+      this.touchRegionStartRatio = 0.5;
+      this.lastTapTime = -999;
+      this.lastTapX = 0;
+      this.lastTapY = 0;
+      this.doubleTapWindow = 0.28;
+      this.doubleTapDistanceSq = 54 * 54;
+      this.doubleTapBoostDuration = 0.45;
+      this.touchBoostUntil = -1;
       this.touchBoost = false;
       this.keys = {
         up: false,
@@ -732,23 +743,58 @@
       return null;
     }
 
-    updateTouchPosition(touch) {
-      if (!touch) {
-        return;
-      }
+    getTouchPoint(clientX, clientY) {
       const rect = this.canvas.getBoundingClientRect();
-      this.touchX = touch.clientX - rect.left;
-      this.touchY = touch.clientY - rect.top;
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top,
+        height: rect.height
+      };
+    }
+
+    inTouchControlRegion(y, canvasHeight) {
+      return y >= canvasHeight * this.touchRegionStartRatio;
+    }
+
+    noteTouchActivity() {
       this.lastTouchInput = this.nowSeconds();
       this.hasMouse = false;
     }
 
-    updateTouchPositionFromClient(clientX, clientY) {
-      const rect = this.canvas.getBoundingClientRect();
-      this.touchX = clientX - rect.left;
-      this.touchY = clientY - rect.top;
-      this.lastTouchInput = this.nowSeconds();
-      this.hasMouse = false;
+    updateTouchPadPosition(x, y) {
+      this.touchPadX = x;
+      this.touchPadY = y;
+      this.noteTouchActivity();
+    }
+
+    beginTouchSteering(pointerId, x, y, source) {
+      this.primaryTouchId = pointerId;
+      this.primaryTouchSource = source;
+      this.touchActive = true;
+      this.touchPadStartX = x;
+      this.touchPadStartY = y;
+      this.updateTouchPadPosition(x, y);
+      this.activeControl = 'touch';
+    }
+
+    clearTouchSteering() {
+      this.primaryTouchId = null;
+      this.primaryTouchSource = null;
+      this.touchActive = false;
+    }
+
+    registerTouchTap(x, y) {
+      const now = this.nowSeconds();
+      const dx = x - this.lastTapX;
+      const dy = y - this.lastTapY;
+      if (now - this.lastTapTime <= this.doubleTapWindow && dx * dx + dy * dy <= this.doubleTapDistanceSq) {
+        this.touchBoostUntil = now + this.doubleTapBoostDuration;
+      }
+      this.lastTapTime = now;
+      this.lastTapX = x;
+      this.lastTapY = y;
+      this.activeControl = 'touch';
+      this.noteTouchActivity();
     }
 
     setTouchBoost(active) {
@@ -788,16 +834,18 @@
             if (event.pointerType !== 'touch' && event.pointerType !== 'pen') {
               return;
             }
-            if (this.primaryTouchId !== null && event.pointerId !== this.primaryTouchId) {
+            const point = this.getTouchPoint(event.clientX, event.clientY);
+            if (!this.inTouchControlRegion(point.y, point.height)) {
               return;
             }
             event.preventDefault();
-            this.activeControl = 'touch';
-            this.primaryTouchId = event.pointerId;
-            this.primaryTouchSource = 'pointer';
-            this.touchActive = true;
-            this.updateTouchPositionFromClient(event.clientX, event.clientY);
-            if (typeof this.canvas.setPointerCapture === 'function') {
+            this.registerTouchTap(point.x, point.y);
+            if (this.primaryTouchId === null) {
+              this.beginTouchSteering(event.pointerId, point.x, point.y, 'pointer');
+            } else if (event.pointerId === this.primaryTouchId) {
+              this.updateTouchPadPosition(point.x, point.y);
+            }
+            if (typeof this.canvas.setPointerCapture === 'function' && this.primaryTouchId === event.pointerId) {
               try {
                 this.canvas.setPointerCapture(event.pointerId);
               } catch (error) {
@@ -816,9 +864,10 @@
             return;
           }
           event.preventDefault();
+          const point = this.getTouchPoint(event.clientX, event.clientY);
           this.activeControl = 'touch';
           this.touchActive = true;
-          this.updateTouchPositionFromClient(event.clientX, event.clientY);
+          this.updateTouchPadPosition(point.x, point.y);
         };
 
         this.canvas.addEventListener('pointermove', movePointerTouch, { passive: false });
@@ -831,9 +880,7 @@
           if (this.primaryTouchId !== null && event.pointerId !== this.primaryTouchId) {
             return;
           }
-          this.primaryTouchId = null;
-          this.primaryTouchSource = null;
-          this.touchActive = false;
+          this.clearTouchSteering();
         };
 
         this.canvas.addEventListener('pointerup', endPointerTouch, { passive: true });
@@ -924,24 +971,20 @@
             if (!event.touches.length) {
               return;
             }
+            const touch = event.changedTouches[0] || event.touches[0];
+            if (!touch) {
+              return;
+            }
+            const point = this.getTouchPoint(touch.clientX, touch.clientY);
+            if (!this.inTouchControlRegion(point.y, point.height)) {
+              return;
+            }
             event.preventDefault();
-            this.activeControl = 'touch';
+            this.registerTouchTap(point.x, point.y);
             if (this.primaryTouchId === null) {
-              const touch = event.changedTouches[0] || event.touches[0];
-              if (!touch) {
-                return;
-              }
-              this.primaryTouchId = touch.identifier;
-              this.primaryTouchSource = 'touch';
-              this.touchActive = true;
-              this.updateTouchPosition(touch);
-            } else {
-              const touch = this.findTouchById(event.touches, this.primaryTouchId);
-              if (!touch) {
-                return;
-              }
-              this.touchActive = true;
-              this.updateTouchPosition(touch);
+              this.beginTouchSteering(touch.identifier, point.x, point.y, 'touch');
+            } else if (touch.identifier === this.primaryTouchId) {
+              this.updateTouchPadPosition(point.x, point.y);
             }
           },
           { passive: false }
@@ -955,10 +998,11 @@
           if (!touch) {
             return;
           }
+          const point = this.getTouchPoint(touch.clientX, touch.clientY);
           event.preventDefault();
           this.activeControl = 'touch';
           this.touchActive = true;
-          this.updateTouchPosition(touch);
+          this.updateTouchPadPosition(point.x, point.y);
         };
 
         this.canvas.addEventListener('touchmove', moveTouch, { passive: false });
@@ -971,12 +1015,11 @@
           const stillActiveTouch = this.findTouchById(event.touches, this.primaryTouchId);
           if (stillActiveTouch) {
             this.touchActive = true;
-            this.updateTouchPosition(stillActiveTouch);
+            const point = this.getTouchPoint(stillActiveTouch.clientX, stillActiveTouch.clientY);
+            this.updateTouchPadPosition(point.x, point.y);
             return;
           }
-          this.primaryTouchId = null;
-          this.primaryTouchSource = null;
-          this.touchActive = false;
+          this.clearTouchSteering();
         };
 
         window.addEventListener('touchend', clearTouch, { passive: true });
@@ -1013,10 +1056,12 @@
           hasDirection = true;
         }
       } else if (this.activeControl === 'touch' && this.touchActive) {
-        const worldX = (this.touchX - viewport.width * 0.5) / camera.zoom + camera.x;
-        const worldY = (this.touchY - viewport.height * 0.5) / camera.zoom + camera.y;
-        desiredAngle = Math.atan2(worldY - player.head.y, worldX - player.head.x);
-        hasDirection = true;
+        const dx = this.touchPadX - this.touchPadStartX;
+        const dy = this.touchPadY - this.touchPadStartY;
+        if (dx * dx + dy * dy >= this.touchDeadzone * this.touchDeadzone) {
+          desiredAngle = Math.atan2(dy, dx);
+          hasDirection = true;
+        }
       } else if (this.activeControl === 'mouse' && this.hasMouse) {
         const worldX = (this.mouseX - viewport.width * 0.5) / camera.zoom + camera.x;
         const worldY = (this.mouseY - viewport.height * 0.5) / camera.zoom + camera.y;
@@ -1026,7 +1071,7 @@
 
       return {
         desiredAngle: hasDirection ? desiredAngle : player.angle,
-        boost: this.keys.boost || this.touchBoost
+        boost: this.keys.boost || this.touchBoost || this.nowSeconds() < this.touchBoostUntil
       };
     }
   }
@@ -2435,18 +2480,9 @@
       if (!this.el.touchBoost) {
         return;
       }
-      const overlaysOpen =
-        (this.el.startScreen && !this.el.startScreen.hidden) ||
-        (this.el.gameOver && !this.el.gameOver.hidden) ||
-        this.isPanelVisible('controls') ||
-        this.isPanelVisible('settings');
-      const show = this.game.running && !overlaysOpen && this.isTouchDevice();
-
-      this.el.touchBoost.hidden = !show;
-      if (!show) {
-        this.el.touchBoost.classList.remove('touch-boost--active');
-        this.game.input.setTouchBoost(false);
-      }
+      this.el.touchBoost.hidden = true;
+      this.el.touchBoost.classList.remove('touch-boost--active');
+      this.game.input.setTouchBoost(false);
     }
 
     setPanelVisibility(panelName, visible) {

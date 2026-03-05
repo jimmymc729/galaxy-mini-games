@@ -30,6 +30,9 @@
           <button id="mute-toggle" type="button" aria-pressed="false">Mute: Off</button>
         </div>
       </header>
+      <button id="touch-boost" class="touch-boost" type="button" hidden aria-label="Boost">
+        BOOST
+      </button>
 
       <section id="start-screen" class="overlay overlay--visible" aria-labelledby="title">
         <div class="overlay__card">
@@ -49,9 +52,9 @@
         <div class="overlay__card overlay__card--narrow">
           <h2>Controls</h2>
           <ul>
-            <li>Move: Mouse (default) or Keyboard mode in settings</li>
+            <li>Move: Mouse, invisible lower-half touchpad, or Keyboard mode in settings</li>
             <li>Keyboard mode: A/D or Left/Right to steer (relative turn)</li>
-            <li>Boost: Hold Space (costs mass)</li>
+            <li>Boost: Hold Space or double-tap the lower touchpad area</li>
             <li>Pause: Escape</li>
           </ul>
           <div class="overlay__actions">
