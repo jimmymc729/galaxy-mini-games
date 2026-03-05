@@ -11,8 +11,8 @@ const mobileScoreEl = document.getElementById("mobileScoreValue");
 const mobileBestEl = document.getElementById("mobileBestValue");
 const mobileModeEl = document.getElementById("mobileModeValue");
 const pauseBtnEl = document.getElementById("pauseBtn");
-const movePadEl = document.getElementById("movePad");
-const moveNubEl = document.getElementById("moveNub");
+const leftBtnEl = document.getElementById("leftBtn");
+const rightBtnEl = document.getElementById("rightBtn");
 const fireBtnEl = document.getElementById("fireBtn");
 const titlebarEl = document.querySelector(".titlebar");
 const mobileStatusShellEl = document.querySelector(".mobile-status");
@@ -141,13 +141,12 @@ const state = {
     sprayTimer: 0,
   },
   mobile: {
-    movePointerId: null,
+    leftPointerId: null,
+    rightPointerId: null,
+    leftInterval: null,
+    rightInterval: null,
     firePointerId: null,
     fireInterval: null,
-    laneCooldownUntil: 0,
-    jumpArmed: true,
-    nubX: 0,
-    nubY: 0,
   },
 };
 
@@ -2009,7 +2008,7 @@ function drawOverlay() {
     ctx.fillText("Space Runner", state.width / 2, state.height * 0.34);
     ctx.font = `600 ${bodySize}px Rajdhani, sans-serif`;
     const controlsLine = state.isMobileViewport
-      ? "Use left pad to move lanes / jump up, and FIRE button to blast"
+      ? "Use \u2190 and \u2192 to move lanes, and FIRE button to blast"
       : "Left/Right to lane-shift, Space to fire blaster, Up/W to jump, M toggles music";
     ctx.fillText(controlsLine, state.width / 2, state.height * 0.49);
     ctx.fillText("Hit green power cores for spray-shot; miss 25 aliens and your ship explodes", state.width / 2, state.height * 0.56);
@@ -2134,17 +2133,19 @@ function tick(time) {
   requestAnimationFrame(tick);
 }
 
-function setMoveNub(offsetX, offsetY) {
-  state.mobile.nubX = offsetX;
-  state.mobile.nubY = offsetY;
-  if (!moveNubEl) return;
-  moveNubEl.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
+function stopLaneInterval(side) {
+  const key = side === "left" ? "leftInterval" : "rightInterval";
+  if (state.mobile[key]) {
+    clearInterval(state.mobile[key]);
+    state.mobile[key] = null;
+  }
 }
 
-function resetMovePad() {
-  state.mobile.movePointerId = null;
-  state.mobile.jumpArmed = true;
-  setMoveNub(0, 0);
+function stopAllMobileMoveLoops() {
+  stopLaneInterval("left");
+  stopLaneInterval("right");
+  state.mobile.leftPointerId = null;
+  state.mobile.rightPointerId = null;
 }
 
 function stopMobileFireLoop() {
@@ -2155,77 +2156,47 @@ function stopMobileFireLoop() {
   state.mobile.firePointerId = null;
 }
 
-function updateMovePad(clientX, clientY) {
-  if (!movePadEl) return;
-  const rect = movePadEl.getBoundingClientRect();
-  const centerX = rect.left + rect.width * 0.5;
-  const centerY = rect.top + rect.height * 0.5;
-  const maxOffset = rect.width * 0.32;
-
-  let dx = clientX - centerX;
-  let dy = clientY - centerY;
-  const distance = Math.hypot(dx, dy);
-  if (distance > maxOffset && distance > 0) {
-    const scale = maxOffset / distance;
-    dx *= scale;
-    dy *= scale;
-  }
-
-  setMoveNub(dx, dy);
-
-  const now = performance.now();
-  const laneThreshold = maxOffset * 0.34;
-  if (Math.abs(dx) > laneThreshold && now >= state.mobile.laneCooldownUntil) {
-    moveLane(dx > 0 ? 1 : -1);
-    state.mobile.laneCooldownUntil = now + 128;
-  }
-
-  const jumpThreshold = maxOffset * 0.55;
-  if (dy < -jumpThreshold && state.mobile.jumpArmed) {
-    jump();
-    state.mobile.jumpArmed = false;
-  }
-  if (dy > -jumpThreshold * 0.25) {
-    state.mobile.jumpArmed = true;
-  }
-}
-
-function handleMovePadDown(event) {
-  if (!state.isMobileViewport || !movePadEl) return;
+function handleLaneDown(side, dir, event) {
+  if (!state.isMobileViewport) return;
   ensureAudio();
   event.preventDefault();
 
   if (state.phase === "gameover") {
     resetGame();
   }
-  if (state.mobile.movePointerId !== null) return;
+  if (state.phase === "paused") return;
 
-  state.mobile.movePointerId = event.pointerId;
-  if (movePadEl.setPointerCapture) {
-    movePadEl.setPointerCapture(event.pointerId);
+  const pointerKey = side === "left" ? "leftPointerId" : "rightPointerId";
+  const intervalKey = side === "left" ? "leftInterval" : "rightInterval";
+  const buttonEl = side === "left" ? leftBtnEl : rightBtnEl;
+  if (!buttonEl) return;
+
+  moveLane(dir);
+  stopLaneInterval(side);
+  state.mobile[pointerKey] = event.pointerId;
+  if (buttonEl.setPointerCapture) {
+    buttonEl.setPointerCapture(event.pointerId);
   }
-  updateMovePad(event.clientX, event.clientY);
+  state.mobile[intervalKey] = setInterval(() => {
+    moveLane(dir);
+  }, 145);
 }
 
-function handleMovePadMove(event) {
-  if (!state.isMobileViewport || !movePadEl) return;
-  if (state.mobile.movePointerId !== event.pointerId) return;
+function handleLaneUp(side, event) {
+  const pointerKey = side === "left" ? "leftPointerId" : "rightPointerId";
+  const buttonEl = side === "left" ? leftBtnEl : rightBtnEl;
+  if (!buttonEl) return;
+  if (state.mobile[pointerKey] !== event.pointerId) return;
   event.preventDefault();
-  updateMovePad(event.clientX, event.clientY);
-}
-
-function handleMovePadUp(event) {
-  if (!movePadEl) return;
-  if (state.mobile.movePointerId !== event.pointerId) return;
-  event.preventDefault();
-  if (movePadEl.releasePointerCapture) {
+  if (buttonEl.releasePointerCapture) {
     try {
-      movePadEl.releasePointerCapture(event.pointerId);
+      buttonEl.releasePointerCapture(event.pointerId);
     } catch (_) {
       // Ignore release failures.
     }
   }
-  resetMovePad();
+  stopLaneInterval(side);
+  state.mobile[pointerKey] = null;
 }
 
 function handleFireDown(event) {
@@ -2382,11 +2353,15 @@ canvas.addEventListener("pointerup", handlePointerUp);
 canvas.addEventListener("pointercancel", () => {
   state.touchStart = null;
 });
-if (movePadEl) {
-  movePadEl.addEventListener("pointerdown", handleMovePadDown);
-  movePadEl.addEventListener("pointermove", handleMovePadMove);
-  movePadEl.addEventListener("pointerup", handleMovePadUp);
-  movePadEl.addEventListener("pointercancel", handleMovePadUp);
+if (leftBtnEl) {
+  leftBtnEl.addEventListener("pointerdown", (event) => handleLaneDown("left", -1, event));
+  leftBtnEl.addEventListener("pointerup", (event) => handleLaneUp("left", event));
+  leftBtnEl.addEventListener("pointercancel", (event) => handleLaneUp("left", event));
+}
+if (rightBtnEl) {
+  rightBtnEl.addEventListener("pointerdown", (event) => handleLaneDown("right", 1, event));
+  rightBtnEl.addEventListener("pointerup", (event) => handleLaneUp("right", event));
+  rightBtnEl.addEventListener("pointercancel", (event) => handleLaneUp("right", event));
 }
 if (fireBtnEl) {
   fireBtnEl.addEventListener("pointerdown", handleFireDown);
@@ -2396,7 +2371,7 @@ if (fireBtnEl) {
 window.addEventListener("resize", resizeCanvas);
 window.addEventListener("blur", () => {
   stopMobileFireLoop();
-  resetMovePad();
+  stopAllMobileMoveLoops();
 });
 if (MOBILE_QUERY.addEventListener) {
   MOBILE_QUERY.addEventListener("change", () => {

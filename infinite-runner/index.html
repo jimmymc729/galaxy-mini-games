@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Rajdhani:wght@500;600;700&display=swap"
     />
-    <link rel="stylesheet" href="./styles.css?v=mobile-20260304-1" />
+    <link rel="stylesheet" href="./styles.css?v=mobile-20260305-1" />
   </head>
   <body>
     <main class="layout">
@@ -45,13 +45,14 @@
       </section>
 
       <section class="mobile-controls" aria-label="Mobile game controls">
-        <div id="movePad" class="move-pad" role="button" aria-label="Move and jump control" tabindex="0">
-          <div id="moveNub" class="move-nub"></div>
+        <div class="arrow-controls" aria-label="Movement controls">
+          <button id="leftBtn" type="button" class="arrow-btn" aria-label="Move left">←</button>
+          <button id="rightBtn" type="button" class="arrow-btn" aria-label="Move right">→</button>
         </div>
         <button id="fireBtn" type="button" class="fire-btn" aria-label="Fire">FIRE</button>
       </section>
     </main>
 
-    <script src="./game.js?v=mobile-20260304-1"></script>
+    <script src="./game.js?v=mobile-20260305-1"></script>
   </body>
 </html>
